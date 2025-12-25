@@ -1,0 +1,11 @@
+{
+  "name": "@app/shared",
+  "version": "1.0.0",
+  "description": "Shared for PET backend",
+  "main": "index.ts",
+  "types": "index.ts",
+  "private": true,
+  "scripts": {},
+  "dependencies": {},
+  "devDependencies": {}
+}

@@ -1,0 +1,74 @@
+version: "3.8"
+
+services:
+  # Базы данных (общие для всех сервисов)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: music_app
+      POSTGRES_USER: musician
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  mongodb:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: secret
+    ports:
+      - "27017:27017"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  rabbitmq: # Для межсервисного общения
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672" # AMQP
+      - "15672:15672" # Management UI
+
+  # Микросервисы
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./microservices/api-gateway/Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+    environment:
+      - NODE_ENV=development
+      - AUTH_SERVICE_HOST=auth-service
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./microservices/auth-service/Dockerfile
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - DATABASE_URL=postgresql://musician:secret@postgres:5432/music_app
+      - REDIS_URL=redis://redis:6379
+
+  # template:
+  #   build:
+  #     context: .
+  #     dockerfile: ./microservices/template/Dockerfile
+  #   ports:
+  #     - "3002:3002"
+  #   depends_on:
+  #     - rabbitmq
+  #   environment:
+  #     - RABBITMQ_URL=amqp://rabbitmq:5672
+
+volumes:
+  postgres_data:
+  uploads_volume:

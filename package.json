@@ -1,0 +1,17 @@
+{
+  "name": "music-app-backend",
+  "private": true,
+  "workspaces": [
+    "microservices/*",
+    "shared/*"
+  ],
+  "scripts": {
+    "start:all": "docker-compose up --build",
+    "dev:all": "concurrently \"npm run dev --workspace=auth-service\" \"npm run dev --workspace=media-service\" \"npm run dev --workspace=template\"",
+    "build:all": "npm run build --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}
