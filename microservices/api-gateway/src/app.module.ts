@@ -9,13 +9,18 @@ import { AppService } from './app.service';
       {
         name: 'AUTH_SERVICE',
         useFactory: () => {
-          const host = process.env.AUTH_SERVICE_HOST || 'localhost';
-          const port = parseInt(process.env.AUTH_SERVICE_PORT || '3001');
+          const rabbitmqUrl =
+            process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
+          const queue = process.env.AUTH_QUEUE || 'auth_queue';
+
           return {
-            transport: Transport.TCP,
+            transport: Transport.RMQ,
             options: {
-              host,
-              port,
+              urls: [rabbitmqUrl],
+              queue,
+              queueOptions: {
+                durable: true,
+              },
             },
           };
         },

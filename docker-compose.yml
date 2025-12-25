@@ -36,6 +36,11 @@ services:
     ports:
       - "5672:5672" # AMQP
       - "15672:15672" # Management UI
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Микросервисы
   auth-service:
@@ -49,9 +54,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://musician:secret@postgres:5432/music_app
       - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - AUTH_QUEUE=auth_queue
     restart: unless-stopped
 
   api-gateway:
@@ -61,11 +70,14 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - auth-service
+      rabbitmq:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
     environment:
       - NODE_ENV=development
-      - AUTH_SERVICE_HOST=auth-service
-      - AUTH_SERVICE_PORT=3001
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - AUTH_QUEUE=auth_queue
     restart: unless-stopped
 
   # template:

@@ -3,18 +3,26 @@ import { AppModule } from './app.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 
 async function bootstrap() {
-  // Создаем микросервис с TCP транспортом
+  // Создаем микросервис с RabbitMQ транспортом
+  const rabbitmqUrl =
+    process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
+  const queue = process.env.AUTH_QUEUE || 'auth_queue';
+
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
     AppModule,
     {
-      transport: Transport.TCP,
+      transport: Transport.RMQ,
       options: {
-        host: '0.0.0.0',
-        port: 3001,
+        urls: [rabbitmqUrl],
+        queue,
+        queueOptions: {
+          durable: true,
+        },
       },
     },
   );
 
   await app.listen();
+  console.log(`Auth service is listening on RabbitMQ queue: ${queue}`);
 }
-bootstrap();
+void bootstrap();
