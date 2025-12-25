@@ -12,6 +12,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U musician"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   mongodb:
     image: mongo:7
@@ -33,6 +38,22 @@ services:
       - "15672:15672" # Management UI
 
   # Микросервисы
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./microservices/auth-service/Dockerfile
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      - DATABASE_URL=postgresql://musician:secret@postgres:5432/music_app
+      - REDIS_URL=redis://redis:6379
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -44,19 +65,8 @@ services:
     environment:
       - NODE_ENV=development
       - AUTH_SERVICE_HOST=auth-service
-
-  auth-service:
-    build:
-      context: .
-      dockerfile: ./microservices/auth-service/Dockerfile
-    ports:
-      - "3001:3001"
-    depends_on:
-      - postgres
-      - redis
-    environment:
-      - DATABASE_URL=postgresql://musician:secret@postgres:5432/music_app
-      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_PORT=3001
+    restart: unless-stopped
 
   # template:
   #   build:

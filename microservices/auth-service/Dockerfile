@@ -29,13 +29,10 @@ WORKDIR /app
 # Копируем shared папку для локальных зависимостей
 COPY shared ./shared
 
-# Копируем package.json сервиса для production зависимостей
+# Копируем package.json сервиса
 COPY microservices/auth-service/package*.json ./
 
-# Устанавливаем только production зависимости (используем npm install для локальных пакетов)
-RUN npm install --only=production && npm cache clean --force
-
-# Копируем собранное приложение из builder
+# Копируем собранное приложение и все зависимости из builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 
