@@ -8,10 +8,21 @@
   "scripts": {
     "start:all": "docker-compose up --build",
     "dev:all": "concurrently \"npm run dev --workspace=auth-service\" \"npm run dev --workspace=media-service\" \"npm run dev --workspace=template\"",
-    "build:all": "npm run build --workspaces"
+    "build:all": "npm run build --workspaces",
+    "prepare": "husky"
   },
   "devDependencies": {
     "concurrently": "^8.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.11",
     "typescript": "^5.0.0"
+  },
+  "lint-staged": {
+    "microservices/**/*.{ts,js}": [
+      "node scripts/lint-staged.js"
+    ],
+    "shared/**/*.{ts,js}": [
+      "node scripts/lint-staged.js"
+    ]
   }
 }
