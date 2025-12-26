@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { AuthModule } from './auth.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 
 async function bootstrap() {
@@ -9,7 +9,7 @@ async function bootstrap() {
   const queue = process.env.AUTH_QUEUE || 'auth_queue';
 
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
-    AppModule,
+    AuthModule,
     {
       transport: Transport.RMQ,
       options: {

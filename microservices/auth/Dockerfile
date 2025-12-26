@@ -7,16 +7,16 @@ WORKDIR /app
 COPY shared ./shared
 
 # Копируем файлы зависимостей сервиса в правильную структуру
-COPY microservices/api-gateway/package*.json ./microservices/api-gateway/
-COPY microservices/api-gateway/tsconfig*.json ./microservices/api-gateway/
-COPY microservices/api-gateway/nest-cli.json ./microservices/api-gateway/
+COPY microservices/auth/package*.json ./microservices/auth/
+COPY microservices/auth/tsconfig*.json ./microservices/auth/
+COPY microservices/auth/nest-cli.json ./microservices/auth/
 
 # Переходим в директорию сервиса и устанавливаем зависимости
-WORKDIR /app/microservices/api-gateway
+WORKDIR /app/microservices/auth
 RUN npm install --legacy-peer-deps
 
 # Копируем исходный код сервиса
-COPY microservices/api-gateway/src ./src
+COPY microservices/auth/src ./src
 
 # Собираем приложение
 RUN npm run build || (echo "Build failed!" && exit 1)
@@ -47,20 +47,20 @@ WORKDIR /app
 COPY shared ./shared
 
 # Копируем package.json сервиса в правильную структуру
-COPY microservices/api-gateway/package*.json ./microservices/api-gateway/
+COPY microservices/auth/package*.json ./microservices/auth/
 
 # Переходим в директорию сервиса и устанавливаем только production зависимости
-WORKDIR /app/microservices/api-gateway
+WORKDIR /app/microservices/auth
 RUN npm install --omit=dev --legacy-peer-deps
 
 # Копируем собранное приложение из builder
-COPY --from=builder /app/microservices/api-gateway/dist ./dist
+COPY --from=builder /app/microservices/auth/dist ./dist
 RUN test -f dist/main.js || (echo "ERROR: dist/main.js not found after copy!" && ls -la dist/ && exit 1)
 
 # Открываем порт
-EXPOSE 3000
+EXPOSE 3001
 
 # Запускаем приложение
-WORKDIR /app/microservices/api-gateway
+WORKDIR /app/microservices/auth
 CMD ["node", "dist/main"]
 

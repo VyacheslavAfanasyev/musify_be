@@ -7,7 +7,7 @@ backend/
 ├── docker-compose.yml          # Оркестрация всех сервисов
 ├── microservices/
 │   ├── api-gateway/           # API Gateway сервис
-│   ├── auth-service/          # Сервис аутентификации
+│   ├── auth/          # Сервис аутентификации
 │   └── media-service/         # Сервис медиа
 └── shared/                     # Общие библиотеки и типы
     ├── configs/
@@ -33,7 +33,7 @@ docker-compose logs -f
 
 # Просмотр логов конкретного сервиса
 docker-compose logs -f api-gateway
-docker-compose logs -f auth-service
+docker-compose logs -f auth
 
 # Остановка всех сервисов
 docker-compose down

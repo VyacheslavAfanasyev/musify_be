@@ -4,6 +4,11 @@
   "description": "Shared for PET backend",
   "main": "index.ts",
   "types": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./types/index.ts",
+    "./types/*": "./types/*.ts"
+  },
   "private": true,
   "scripts": {},
   "dependencies": {},

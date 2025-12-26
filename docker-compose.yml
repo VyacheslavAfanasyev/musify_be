@@ -18,13 +18,13 @@ services:
       timeout: 5s
       retries: 5
 
-  mongodb:
-    image: mongo:7
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: secret
-    ports:
-      - "27017:27017"
+  # mongodb:
+  #   image: mongo:7
+  #   environment:
+  #     MONGO_INITDB_ROOT_USERNAME: root
+  #     MONGO_INITDB_ROOT_PASSWORD: secret
+  #   ports:
+  #     - "27017:27017"
 
   redis:
     image: redis:7-alpine
@@ -43,10 +43,10 @@ services:
       retries: 5
 
   # Микросервисы
-  auth-service:
+  auth:
     build:
       context: .
-      dockerfile: ./microservices/auth-service/Dockerfile
+      dockerfile: ./microservices/auth/Dockerfile
     ports:
       - "3001:3001"
     depends_on:
@@ -72,7 +72,7 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
-      auth-service:
+      auth:
         condition: service_started
     environment:
       - NODE_ENV=development
