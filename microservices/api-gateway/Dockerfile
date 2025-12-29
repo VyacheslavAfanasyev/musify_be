@@ -21,6 +21,28 @@ COPY microservices/api-gateway/src ./src
 # Собираем приложение
 RUN npm run build
 
+# Development образ
+FROM node:20-alpine AS development
+
+WORKDIR /app
+
+# Копируем shared папку для локальных зависимостей
+COPY shared ./shared
+
+# Копируем файлы конфигурации и зависимости
+COPY microservices/api-gateway/package*.json ./
+COPY microservices/api-gateway/tsconfig*.json ./
+COPY microservices/api-gateway/nest-cli.json ./
+
+# Устанавливаем все зависимости (включая devDependencies для HMR)
+RUN npm install
+
+# Открываем порт
+EXPOSE 3000
+
+# В development режиме используем watch mode для HMR
+CMD ["npm", "run", "start:dev"]
+
 # Production образ
 FROM node:20-alpine AS production
 

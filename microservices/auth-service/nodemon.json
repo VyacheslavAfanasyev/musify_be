@@ -1,0 +1,13 @@
+{
+  "watch": ["src", "shared"],
+  "ext": "ts",
+  "ignore": ["src/**/*.spec.ts"],
+  "exec": "nest start",
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "legacyWatch": true,
+  "polling": true,
+  "interval": 1000
+}
+

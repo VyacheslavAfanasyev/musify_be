@@ -21,6 +21,28 @@ COPY microservices/auth-service/src ./src
 # Собираем приложение
 RUN npm run build
 
+# Development образ
+FROM node:20-alpine AS development
+
+WORKDIR /app
+
+# Копируем shared папку для локальных зависимостей
+COPY shared ./shared
+
+# Копируем файлы конфигурации и зависимости
+COPY microservices/auth-service/package*.json ./
+COPY microservices/auth-service/tsconfig*.json ./
+COPY microservices/auth-service/nest-cli.json ./
+
+# Устанавливаем все зависимости (включая devDependencies для HMR)
+RUN npm install
+
+# Открываем порт
+EXPOSE 3001
+
+# В development режиме используем watch mode для HMR
+CMD ["npm", "run", "start:dev"]
+
 # Production образ
 FROM node:20-alpine AS production
 

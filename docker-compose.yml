@@ -47,8 +47,20 @@ services:
     build:
       context: .
       dockerfile: ./microservices/auth-service/Dockerfile
+      target: development
     ports:
       - "3001:3001"
+    volumes:
+      # Монтируем исходный код для HMR
+      - ./microservices/auth-service/src:/app/src
+      - ./microservices/auth-service/package.json:/app/package.json
+      - ./microservices/auth-service/tsconfig.json:/app/tsconfig.json
+      - ./microservices/auth-service/tsconfig.build.json:/app/tsconfig.build.json
+      - ./microservices/auth-service/nest-cli.json:/app/nest-cli.json
+      - ./microservices/auth-service/nodemon.json:/app/nodemon.json
+      - ./shared:/app/shared
+      # Исключаем node_modules из монтирования (используем из образа)
+      - /app/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -57,6 +69,7 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
+      - NODE_ENV=development
       - DATABASE_URL=postgresql://musician:secret@postgres:5432/music_app
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
@@ -67,8 +80,20 @@ services:
     build:
       context: .
       dockerfile: ./microservices/api-gateway/Dockerfile
+      target: development
     ports:
       - "3000:3000"
+    volumes:
+      # Монтируем исходный код для HMR
+      - ./microservices/api-gateway/src:/app/src
+      - ./microservices/api-gateway/package.json:/app/package.json
+      - ./microservices/api-gateway/tsconfig.json:/app/tsconfig.json
+      - ./microservices/api-gateway/tsconfig.build.json:/app/tsconfig.build.json
+      - ./microservices/api-gateway/nest-cli.json:/app/nest-cli.json
+      - ./microservices/api-gateway/nodemon.json:/app/nodemon.json
+      - ./shared:/app/shared
+      # Исключаем node_modules из монтирования (используем из образа)
+      - /app/node_modules
     depends_on:
       rabbitmq:
         condition: service_healthy
