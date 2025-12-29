@@ -4,10 +4,13 @@ import {
   Inject,
   HttpException,
   HttpStatus,
+  Post,
+  Body,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom, Observable } from 'rxjs';
 import { AppService } from './app.service';
+import type { ICreateUserDto } from '@app/shared';
 
 @Controller()
 export class AppController {
@@ -40,5 +43,15 @@ export class AppController {
         HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
+  }
+
+  @Post('auth/register')
+  register(@Body() registerDto: ICreateUserDto) {
+    return firstValueFrom(
+      this.authClient.send(
+        { cmd: 'register' },
+        registerDto,
+      ) as unknown as Observable<any>,
+    );
   }
 }

@@ -6,6 +6,8 @@ WORKDIR /app
 # Копируем shared папку (контекст сборки - корень проекта)
 COPY shared ./shared
 
+# Создаем структуру директорий для правильного разрешения пути file:../../shared
+RUN mkdir -p ../.. && ln -sf /app/shared ../../shared || true
 
 # Копируем файлы зависимостей сервиса
 COPY microservices/api-gateway/package*.json ./
@@ -29,6 +31,9 @@ WORKDIR /app
 # Копируем shared папку для локальных зависимостей
 COPY shared ./shared
 
+# Создаем структуру директорий для правильного разрешения пути file:../../shared
+RUN mkdir -p ../.. && ln -sf /app/shared ../../shared || true
+
 # Копируем файлы конфигурации и зависимости
 COPY microservices/api-gateway/package*.json ./
 COPY microservices/api-gateway/tsconfig*.json ./
@@ -50,6 +55,9 @@ WORKDIR /app
 
 # Копируем shared папку для локальных зависимостей
 COPY shared ./shared
+
+# Создаем структуру директорий для правильного разрешения пути file:../../shared
+RUN mkdir -p ../.. && ln -sf /app/shared ../../shared || true
 
 # Копируем package.json сервиса
 COPY microservices/api-gateway/package*.json ./

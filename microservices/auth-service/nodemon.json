@@ -2,7 +2,7 @@
   "watch": ["src", "shared"],
   "ext": "ts",
   "ignore": ["src/**/*.spec.ts"],
-  "exec": "nest start",
+  "exec": "ts-node -r tsconfig-paths/register src/main.ts",
   "env": {
     "NODE_ENV": "development"
   },
@@ -10,4 +10,3 @@
   "polling": true,
   "interval": 1000
 }
-
