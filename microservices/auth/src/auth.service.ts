@@ -8,6 +8,7 @@ import {
   ILoginDto,
   IRefreshTokenDto,
   IChangePasswordDto,
+  IBaseResponse,
 } from "@app/shared";
 
 @Injectable()
@@ -220,14 +221,14 @@ export class AuthService {
 
   async changePassword(changePasswordDto: IChangePasswordDto) {
     try {
-      const result = await this.sendToUserService<{
-        success: boolean;
-        error?: string;
-      }>("updatePassword", {
-        userId: changePasswordDto.userId,
-        oldPassword: changePasswordDto.oldPassword,
-        newPassword: changePasswordDto.newPassword,
-      });
+      const result = await this.sendToUserService<IBaseResponse>(
+        "updatePassword",
+        {
+          userId: changePasswordDto.userId,
+          oldPassword: changePasswordDto.oldPassword,
+          newPassword: changePasswordDto.newPassword,
+        },
+      );
 
       return result;
     } catch (error) {

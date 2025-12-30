@@ -2,7 +2,7 @@ import { Injectable, ConflictException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import * as bcrypt from "bcrypt";
-import { ICreateUserDto } from "@app/shared";
+import { ICreateUserDto, IBaseResponse } from "@app/shared";
 import { User } from "@app/shared";
 
 @Injectable()
@@ -57,7 +57,7 @@ export class UsersService {
     userId: string,
     oldPassword: string,
     newPassword: string,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<IBaseResponse> {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
 
     if (!user) {

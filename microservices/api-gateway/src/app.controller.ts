@@ -7,6 +7,10 @@ import type {
   ICreateUserDto,
   ILoginDto,
   IRefreshTokenDto,
+  IBaseResponse,
+  IRegisterResponse,
+  ILoginResponse,
+  IRefreshResponse,
 } from '@app/shared';
 
 @Controller()
@@ -43,48 +47,30 @@ export class AppController {
 
   @Post('auth/register')
   register(@Body() registerDto: ICreateUserDto) {
-    return this.sendToAuthService<
-      { success: true; user: unknown } | { success: false; error: string },
-      ICreateUserDto
-    >('register', registerDto);
+    return this.sendToAuthService<IRegisterResponse, ICreateUserDto>(
+      'register',
+      registerDto,
+    );
   }
 
   @Post('auth/login')
   login(@Body() loginDto: ILoginDto) {
-    return this.sendToAuthService<
-      | {
-          success: true;
-          user: unknown;
-          accessToken: string;
-          refreshToken: string;
-        }
-      | { success: false; error: string },
-      ILoginDto
-    >('login', loginDto);
+    return this.sendToAuthService<ILoginResponse, ILoginDto>('login', loginDto);
   }
 
   @Post('auth/refresh')
   refresh(@Body() refreshTokenDto: IRefreshTokenDto) {
-    return this.sendToAuthService<
-      | {
-          success: true;
-          user: unknown;
-          accessToken: string;
-          refreshToken: string;
-        }
-      | { success: false; error: string },
-      IRefreshTokenDto
-    >('refresh', refreshTokenDto);
+    return this.sendToAuthService<IRefreshResponse, IRefreshTokenDto>(
+      'refresh',
+      refreshTokenDto,
+    );
   }
 
   @Post('auth/change_pass')
   changePassword(@Body() changePasswordDto: IChangePasswordDto) {
-    return this.sendToAuthService<
-      {
-        success: boolean;
-        error?: string;
-      },
-      IChangePasswordDto
-    >('changePassword', changePasswordDto);
+    return this.sendToAuthService<IBaseResponse, IChangePasswordDto>(
+      'changePassword',
+      changePasswordDto,
+    );
   }
 }
