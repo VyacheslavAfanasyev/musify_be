@@ -10,15 +10,15 @@ COPY shared ./shared
 RUN mkdir -p ../.. && ln -sf /app/shared ../../shared || true
 
 # Копируем файлы зависимостей сервиса
-COPY microservices/auth-service/package*.json ./
-COPY microservices/auth-service/tsconfig*.json ./
-COPY microservices/auth-service/nest-cli.json ./
+COPY microservices/auth/package*.json ./
+COPY microservices/auth/tsconfig*.json ./
+COPY microservices/auth/nest-cli.json ./
 
 # Устанавливаем зависимости (используем npm install для локальных пакетов)
 RUN npm install
 
 # Копируем исходный код сервиса
-COPY microservices/auth-service/src ./src
+COPY microservices/auth/src ./src
 
 # Собираем приложение
 RUN npm run build
@@ -35,9 +35,9 @@ COPY shared ./shared
 RUN mkdir -p ../.. && ln -sf /app/shared ../../shared || true
 
 # Копируем файлы конфигурации и зависимости
-COPY microservices/auth-service/package*.json ./
-COPY microservices/auth-service/tsconfig*.json ./
-COPY microservices/auth-service/nest-cli.json ./
+COPY microservices/auth/package*.json ./
+COPY microservices/auth/tsconfig*.json ./
+COPY microservices/auth/nest-cli.json ./
 
 # Устанавливаем все зависимости (включая devDependencies для HMR)
 RUN npm install
@@ -60,7 +60,7 @@ COPY shared ./shared
 RUN mkdir -p ../.. && ln -sf /app/shared ../../shared || true
 
 # Копируем package.json сервиса
-COPY microservices/auth-service/package*.json ./
+COPY microservices/auth/package*.json ./
 
 # Копируем собранное приложение и все зависимости из builder
 COPY --from=builder /app/dist ./dist

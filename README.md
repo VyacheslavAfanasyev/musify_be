@@ -7,7 +7,8 @@ backend/
 ├── docker-compose.yml          # Оркестрация всех сервисов
 ├── microservices/
 │   ├── api-gateway/           # API Gateway сервис
-│   ├── auth-service/          # Сервис аутентификации
+│   ├── auth/                  # Сервис аутентификации
+│   ├── user/                  # Сервис управления пользователями
 │   └── media-service/         # Сервис медиа
 └── shared/                     # Общие библиотеки и типы
     ├── configs/
@@ -33,7 +34,8 @@ docker-compose logs -f
 
 # Просмотр логов конкретного сервиса
 docker-compose logs -f api-gateway
-docker-compose logs -f auth-service
+docker-compose logs -f auth
+docker-compose logs -f user
 
 # Остановка всех сервисов
 docker-compose down
@@ -45,7 +47,8 @@ docker-compose down -v
 **Доступные сервисы:**
 
 - API Gateway: http://localhost:3000
-- Auth Service: http://localhost:3001
+- Auth Service: http://localhost:3001 (RabbitMQ queue: auth_queue)
+- User Service: http://localhost:3002 (RabbitMQ queue: user_queue)
 - PostgreSQL: localhost:5432
 - MongoDB: localhost:27017
 - Redis: localhost:6379

@@ -43,21 +43,54 @@ services:
       retries: 5
 
   # Микросервисы
-  auth-service:
+  auth:
     build:
       context: .
-      dockerfile: ./microservices/auth-service/Dockerfile
+      dockerfile: ./microservices/auth/Dockerfile
       target: development
     ports:
       - "3001:3001"
     volumes:
       # Монтируем исходный код для HMR
-      - ./microservices/auth-service/src:/app/src
-      - ./microservices/auth-service/package.json:/app/package.json
-      - ./microservices/auth-service/tsconfig.json:/app/tsconfig.json
-      - ./microservices/auth-service/tsconfig.build.json:/app/tsconfig.build.json
-      - ./microservices/auth-service/nest-cli.json:/app/nest-cli.json
-      - ./microservices/auth-service/nodemon.json:/app/nodemon.json
+      - ./microservices/auth/src:/app/src
+      - ./microservices/auth/package.json:/app/package.json
+      - ./microservices/auth/tsconfig.json:/app/tsconfig.json
+      - ./microservices/auth/tsconfig.build.json:/app/tsconfig.build.json
+      - ./microservices/auth/nest-cli.json:/app/nest-cli.json
+      - ./microservices/auth/nodemon.json:/app/nodemon.json
+      - ./shared:/app/shared
+      # Исключаем node_modules из монтирования (используем из образа)
+      - /app/node_modules
+    depends_on:
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      user:
+        condition: service_started
+    environment:
+      - NODE_ENV=development
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - AUTH_QUEUE=auth_queue
+      - USER_QUEUE=user_queue
+    restart: unless-stopped
+
+  user:
+    build:
+      context: .
+      dockerfile: ./microservices/user/Dockerfile
+      target: development
+    ports:
+      - "3002:3002"
+    volumes:
+      # Монтируем исходный код для HMR
+      - ./microservices/user/src:/app/src
+      - ./microservices/user/package.json:/app/package.json
+      - ./microservices/user/tsconfig.json:/app/tsconfig.json
+      - ./microservices/user/tsconfig.build.json:/app/tsconfig.build.json
+      - ./microservices/user/nest-cli.json:/app/nest-cli.json
+      - ./microservices/user/nodemon.json:/app/nodemon.json
       - ./shared:/app/shared
       # Исключаем node_modules из монтирования (используем из образа)
       - /app/node_modules
@@ -73,7 +106,7 @@ services:
       - DATABASE_URL=postgresql://musician:secret@postgres:5432/music_app
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
-      - AUTH_QUEUE=auth_queue
+      - USER_QUEUE=user_queue
     restart: unless-stopped
 
   api-gateway:
@@ -97,7 +130,7 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
-      auth-service:
+      auth:
         condition: service_started
     environment:
       - NODE_ENV=development

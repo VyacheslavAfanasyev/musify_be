@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "start:all": "docker-compose up --build",
-    "dev:all": "concurrently \"npm run dev --workspace=auth-service\" \"npm run dev --workspace=media-service\" \"npm run dev --workspace=template\"",
+    "dev:all": "concurrently \"npm run dev --workspace=auth\" \"npm run dev --workspace=user\" \"npm run dev --workspace=media-service\" \"npm run dev --workspace=template\"",
     "build:all": "npm run build --workspaces",
     "prepare": "husky"
   },

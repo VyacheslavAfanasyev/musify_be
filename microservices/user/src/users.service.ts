@@ -1,10 +1,9 @@
-import { Injectable, ConflictException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
-
-import { ICreateUserDto } from '@app/shared';
-import { User } from '@app/shared';
+import { Injectable, ConflictException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import * as bcrypt from "bcrypt";
+import { ICreateUserDto } from "@app/shared";
+import { User } from "@app/shared";
 
 @Injectable()
 export class UsersService {
@@ -21,7 +20,7 @@ export class UsersService {
     if (existingUser) {
       if (existingUser.email === createUserDto.email) {
         throw new ConflictException(
-          'Пользователь с таким email уже существует',
+          "Пользователь с таким email уже существует",
         );
       }
     }
@@ -36,7 +35,7 @@ export class UsersService {
       email: createUserDto.email,
       username: createUserDto.username,
       password: hashedPassword,
-      role: createUserDto.role || 'listener',
+      role: createUserDto.role || "listener",
     });
 
     return await this.usersRepository.save(user);
