@@ -1,7 +1,7 @@
 import { Controller } from "@nestjs/common";
-import { MessagePattern, Payload } from "@nestjs/microservices";
+import { MessagePattern, EventPattern, Payload } from "@nestjs/microservices";
 import { UsersService } from "./users.service";
-import type { IChangePasswordDto, ICreateUserDto } from "@app/shared";
+import type { ICreateUserProfileDto, IUpdateUserProfileDto } from "@app/shared";
 
 @Controller()
 export class UserController {
@@ -12,19 +12,102 @@ export class UserController {
     return "Hello World from USER-SERVICE!";
   }
 
+  /**
+   * Обработка события создания пользователя (Saga Pattern)
+   */
+  @EventPattern("user.created")
+  async handleUserCreated(@Payload() data: ICreateUserProfileDto) {
+    const result = await this.usersService.createProfile(data);
+    if (!result.success && "error" in result) {
+      console.error("Failed to create profile:", result.error);
+      // Можно отправить событие отката, но это уже обработается в Auth Service
+    }
+  }
+
+  /**
+   * Обработка события отката создания пользователя
+   */
+  @EventPattern("user.create.failed")
+  async handleUserCreateFailed(@Payload() data: { userId: string }) {
+    await this.usersService.deleteProfile(data.userId);
+  }
+
+  @MessagePattern({ cmd: "getProfileByUserId" })
+  async getProfileByUserId(@Payload() payload: { userId: string }) {
+    try {
+      return await this.usersService.getProfileByUserId(payload.userId);
+    } catch (error) {
+      console.error("Error in getProfileByUserId:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  @MessagePattern({ cmd: "getProfileByUsername" })
+  async getProfileByUsername(@Payload() payload: { username: string }) {
+    return await this.usersService.getProfileByUsername(payload.username);
+  }
+
+  @MessagePattern({ cmd: "checkProfileExists" })
+  async checkProfileExists(@Payload() payload: { userId: string }) {
+    const exists = await this.usersService.checkProfileExists(payload.userId);
+    return { success: true, exists };
+  }
+
+  /**
+   * Синхронное создание профиля (для использования в Saga Pattern)
+   */
+  @MessagePattern({ cmd: "createProfile" })
+  createProfile(@Payload() data: ICreateUserProfileDto) {
+    return this.usersService.createProfile(data);
+  }
+
+  @MessagePattern({ cmd: "updateProfile" })
+  async updateProfile(
+    @Payload()
+    payload: {
+      userId: string;
+      updateDto: IUpdateUserProfileDto;
+    },
+  ) {
+    return await this.usersService.updateProfile(
+      payload.userId,
+      payload.updateDto,
+    );
+  }
+
+  @MessagePattern({ cmd: "deleteProfile" })
+  deleteProfile(@Payload() payload: { userId: string }) {
+    return this.usersService.deleteProfile(payload.userId);
+  }
+
+  @MessagePattern({ cmd: "getAllProfiles" })
+  async getAllProfiles() {
+    return await this.usersService.findAll();
+  }
+
+  // Обратная совместимость (старые методы, которые больше не используются)
   @MessagePattern({ cmd: "createUser" })
-  async createUser(@Payload() createUserDto: ICreateUserDto) {
-    return await this.usersService.create(createUserDto);
+  createUser() {
+    return {
+      success: false,
+      error: "Use user.created event instead",
+    };
   }
 
   @MessagePattern({ cmd: "getUserByEmail" })
-  async getUserByEmail(@Payload() payload: { email: string }) {
-    return await this.usersService.findByEmail(payload.email);
+  getUserByEmail() {
+    return {
+      success: false,
+      error: "User data is now in Auth Service",
+    };
   }
 
   @MessagePattern({ cmd: "getUserById" })
   async getUserById(@Payload() payload: { id: string }) {
-    return await this.usersService.findById(payload.id);
+    return await this.usersService.getProfileByUserId(payload.id);
   }
 
   @MessagePattern({ cmd: "getAllUsers" })
@@ -33,14 +116,10 @@ export class UserController {
   }
 
   @MessagePattern({ cmd: "updatePassword" })
-  async updatePassword(
-    @Payload()
-    payload: IChangePasswordDto,
-  ) {
-    return await this.usersService.updatePassword(
-      payload.userId,
-      payload.oldPassword,
-      payload.newPassword,
-    );
+  updatePassword() {
+    return {
+      success: false,
+      error: "Password update is now in Auth Service",
+    };
   }
 }

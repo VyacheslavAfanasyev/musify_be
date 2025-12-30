@@ -1,160 +1,249 @@
 import { Injectable } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import * as bcrypt from "bcrypt";
-import { ICreateUserDto, IBaseResponse, getErrorMessage } from "@app/shared";
-import { User } from "@app/shared";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import {
+  ICreateUserProfileDto,
+  IUpdateUserProfileDto,
+  IBaseResponse,
+  getErrorMessage,
+  UserProfile,
+  UserProfileDocument,
+} from "@app/shared";
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectRepository(User)
-    private usersRepository: Repository<User>,
+    @InjectModel(UserProfile.name)
+    private userProfileModel: Model<UserProfileDocument>,
   ) {}
 
-  async create(
-    createUserDto: ICreateUserDto,
+  /**
+   * Создание профиля пользователя (вызывается через событие user.created)
+   */
+  async createProfile(
+    createProfileDto: ICreateUserProfileDto,
   ): Promise<
-    { success: true; user: User } | { success: false; error: string }
+    | { success: true; profile: UserProfileDocument }
+    | { success: false; error: string }
   > {
     try {
-      const existingUser = await this.usersRepository.findOne({
-        where: [{ email: createUserDto.email }],
-      });
-
-      if (existingUser) {
-        if (existingUser.email === createUserDto.email) {
-          return {
-            success: false,
-            error: "Пользователь с таким email уже существует",
-          };
-        }
-      }
-
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(
-        createUserDto.password,
-        saltRounds,
-      );
-
-      const user = this.usersRepository.create({
-        email: createUserDto.email,
-        username: createUserDto.username,
-        password: hashedPassword,
-        role: createUserDto.role || "listener",
-      });
-
-      const savedUser = await this.usersRepository.save(user);
-      return {
-        success: true,
-        user: savedUser,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: getErrorMessage(error, "Failed to create user"),
-      };
-    }
-  }
-
-  async findByEmail(
-    email: string,
-  ): Promise<
-    { success: true; user: User } | { success: false; error: string }
-  > {
-    try {
-      const user = await this.usersRepository.findOne({ where: { email } });
-      if (user) {
+      // Валидация обязательных полей
+      if (!createProfileDto.userId) {
+        console.error("createProfile: userId is required");
         return {
-          success: true,
-          user,
+          success: false,
+          error: "userId is required",
         };
       }
-      return {
-        success: false,
-        error: "User not found",
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: getErrorMessage(error, "Failed to find user by email"),
-      };
-    }
-  }
 
-  async findById(
-    id: string,
-  ): Promise<
-    { success: true; user: User } | { success: false; error: string }
-  > {
-    try {
-      const user = await this.usersRepository.findOne({ where: { id } });
-      if (user) {
+      if (!createProfileDto.username) {
+        console.error("createProfile: username is required");
         return {
-          success: true,
-          user,
+          success: false,
+          error: "username is required",
         };
       }
-      return {
-        success: false,
-        error: "User not found",
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: getErrorMessage(error, "Failed to find user by id"),
-      };
-    }
-  }
 
-  async findAll(): Promise<
-    { success: true; users: User[] } | { success: false; error: string }
-  > {
-    try {
-      const users = await this.usersRepository.find();
+      const existingProfile = await this.userProfileModel
+        .findOne({
+          $or: [
+            { userId: createProfileDto.userId },
+            { username: createProfileDto.username },
+          ],
+        })
+        .maxTimeMS(10000)
+        .exec();
+
+      if (existingProfile) {
+        console.error("createProfile: Profile already exists", {
+          existingUserId: existingProfile.userId,
+          existingUsername: existingProfile.username,
+        });
+        return {
+          success: false,
+          error: "Profile already exists",
+        };
+      }
+
+      const profileData = {
+        userId: createProfileDto.userId,
+        username: createProfileDto.username,
+        role: createProfileDto.role || "listener",
+        displayName: createProfileDto.displayName,
+        bio: createProfileDto.bio,
+        avatarUrl: createProfileDto.avatarUrl,
+        coverImageUrl: createProfileDto.coverImageUrl,
+        location: createProfileDto.location,
+        genres: createProfileDto.genres || [],
+        instruments: createProfileDto.instruments || [],
+        socialLinks: createProfileDto.socialLinks || {},
+        stats: {
+          tracksCount: 0,
+          followersCount: 0,
+          followingCount: 0,
+          totalPlays: 0,
+        },
+        preferences: {
+          emailNotifications: true,
+          showOnlineStatus: true,
+          privateProfile: false,
+        },
+      };
+
+      const profile = new this.userProfileModel(profileData);
+
+      const savedProfile = await profile.save();
+
       return {
         success: true,
-        users,
+        profile: savedProfile,
       };
     } catch (error) {
+      console.error("createProfile error:", error);
+      // Обработка специфичных ошибок MongoDB
+      if (error?.code === 11000) {
+        // Duplicate key error
+        const keyPattern =
+          error && typeof error === "object" && "keyPattern" in error
+            ? (error.keyPattern as Record<string, unknown>)
+            : {};
+        const duplicateField = Object.keys(keyPattern)[0];
+        return {
+          success: false,
+          error: `Profile with this ${duplicateField} already exists`,
+        };
+      }
+
+      if (error?.name === "ValidationError") {
+        const errors =
+          error &&
+          typeof error === "object" &&
+          "errors" in error &&
+          typeof error.errors === "object" &&
+          error.errors !== null
+            ? (error.errors as Record<string, { message?: string }>)
+            : {};
+        const validationErrors = Object.values(errors)
+          .map((err) => err?.message)
+          .filter((msg): msg is string => typeof msg === "string");
+        return {
+          success: false,
+          error: `Validation error: ${validationErrors.join(", ")}`,
+        };
+      }
+
       return {
         success: false,
-        error: getErrorMessage(error, "Failed to get all users"),
+        error: getErrorMessage(error, "Failed to create profile"),
       };
     }
   }
 
-  async updatePassword(
+  /**
+   * Получение профиля по userId
+   */
+  async getProfileByUserId(
     userId: string,
-    oldPassword: string,
-    newPassword: string,
+  ): Promise<
+    | { success: true; profile: UserProfileDocument }
+    | { success: false; error: string }
+  > {
+    try {
+      // Добавляем таймаут 5 секунд для запроса к MongoDB
+      const profile = await this.userProfileModel
+        .findOne({ userId })
+        .maxTimeMS(5000)
+        .exec();
+      if (profile) {
+        return {
+          success: true,
+          profile,
+        };
+      }
+      return {
+        success: false,
+        error: "Profile not found",
+      };
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, "Failed to find profile");
+      // Проверяем, не таймаут ли это
+      if (
+        errorMessage.includes("operation timed out") ||
+        errorMessage.includes("timeout") ||
+        errorMessage.includes("MongoServerError")
+      ) {
+        return {
+          success: false,
+          error: "Database connection timeout or error",
+        };
+      }
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * Получение профиля по username
+   */
+  async getProfileByUsername(
+    username: string,
+  ): Promise<
+    | { success: true; profile: UserProfileDocument }
+    | { success: false; error: string }
+  > {
+    try {
+      const profile = await this.userProfileModel.findOne({ username });
+      if (profile) {
+        return {
+          success: true,
+          profile,
+        };
+      }
+      return {
+        success: false,
+        error: "Profile not found",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: getErrorMessage(error, "Failed to find profile"),
+      };
+    }
+  }
+
+  /**
+   * Проверка существования профиля
+   */
+  async checkProfileExists(userId: string): Promise<boolean> {
+    try {
+      const profile = await this.userProfileModel.findOne({ userId });
+      return !!profile;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  /**
+   * Обновление профиля
+   */
+  async updateProfile(
+    userId: string,
+    updateDto: IUpdateUserProfileDto,
   ): Promise<IBaseResponse> {
     try {
-      const user = await this.usersRepository.findOne({
-        where: { id: userId },
-      });
+      const profile = await this.userProfileModel.findOne({ userId });
 
-      if (!user) {
+      if (!profile) {
         return {
           success: false,
-          error: "User not found",
+          error: "Profile not found",
         };
       }
 
-      const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
-
-      if (!isPasswordValid) {
-        return {
-          success: false,
-          error: "Invalid old password",
-        };
-      }
-
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-
-      user.password = hashedPassword;
-      await this.usersRepository.save(user);
+      Object.assign(profile, updateDto);
+      await profile.save();
 
       return {
         success: true,
@@ -162,7 +251,51 @@ export class UsersService {
     } catch (error) {
       return {
         success: false,
-        error: getErrorMessage(error, "Failed to update password"),
+        error: getErrorMessage(error, "Failed to update profile"),
+      };
+    }
+  }
+
+  /**
+   * Получение всех профилей
+   */
+  async findAll(): Promise<
+    | { success: true; profiles: UserProfileDocument[] }
+    | { success: false; error: string }
+  > {
+    try {
+      const profiles = await this.userProfileModel.find();
+      return {
+        success: true,
+        profiles,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: getErrorMessage(error, "Failed to get all profiles"),
+      };
+    }
+  }
+
+  /**
+   * Удаление профиля (для отката при ошибке создания)
+   */
+  async deleteProfile(userId: string): Promise<IBaseResponse> {
+    try {
+      const result = await this.userProfileModel.deleteOne({ userId });
+      if (result.deletedCount === 0) {
+        return {
+          success: false,
+          error: "Profile not found",
+        };
+      }
+      return {
+        success: true,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: getErrorMessage(error, "Failed to delete profile"),
       };
     }
   }
