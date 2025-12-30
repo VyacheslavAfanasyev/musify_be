@@ -7,7 +7,9 @@
   "private": true,
   "scripts": {},
   "dependencies": {
-    "typeorm": "^0.3.20"
+    "typeorm": "^0.3.20",
+    "@nestjs/mongoose": "^11.0.0",
+    "mongoose": "^8.8.4"
   },
   "devDependencies": {}
 }

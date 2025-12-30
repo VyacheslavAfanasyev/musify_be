@@ -25,6 +25,13 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: secret
     ports:
       - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -62,6 +69,8 @@ services:
       # Исключаем node_modules из монтирования (используем из образа)
       - /app/node_modules
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_started
       rabbitmq:
@@ -70,6 +79,7 @@ services:
         condition: service_started
     environment:
       - NODE_ENV=development
+      - DATABASE_URL=postgresql://musician:secret@postgres:5432/music_app
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - AUTH_QUEUE=auth_queue
@@ -95,7 +105,7 @@ services:
       # Исключаем node_modules из монтирования (используем из образа)
       - /app/node_modules
     depends_on:
-      postgres:
+      mongodb:
         condition: service_healthy
       redis:
         condition: service_started
@@ -103,7 +113,7 @@ services:
         condition: service_healthy
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://musician:secret@postgres:5432/music_app
+      - MONGODB_URL=mongodb://root:secret@mongodb:27017/music_app?authSource=admin
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - USER_QUEUE=user_queue
@@ -151,4 +161,5 @@ services:
 
 volumes:
   postgres_data:
+  mongodb_data:
   uploads_volume:

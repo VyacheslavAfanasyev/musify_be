@@ -25,6 +25,25 @@ import { AppService } from './app.service';
           };
         },
       },
+      {
+        name: 'USER_SERVICE',
+        useFactory: () => {
+          const rabbitmqUrl =
+            process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
+          const queue = process.env.USER_QUEUE || 'user_queue';
+
+          return {
+            transport: Transport.RMQ,
+            options: {
+              urls: [rabbitmqUrl],
+              queue,
+              queueOptions: {
+                durable: true,
+              },
+            },
+          };
+        },
+      },
     ]),
   ],
   controllers: [AppController],

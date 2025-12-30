@@ -36,4 +36,9 @@ export class AuthController {
   async changePassword(@Payload() changePasswordDto: IChangePasswordDto) {
     return await this.authService.changePassword(changePasswordDto);
   }
+
+  @MessagePattern({ cmd: "getUserById" })
+  async getUserById(@Payload() payload: { id: string }) {
+    return await this.authService.getUserById(payload.id);
+  }
 }
