@@ -1,7 +1,7 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { AuthService } from './auth.service';
-import type { ICreateUserDto } from '@app/shared';
+import type { ICreateUserDto, ILoginDto, IRefreshTokenDto } from '@app/shared';
 
 @Controller()
 export class AuthController {
@@ -17,13 +17,13 @@ export class AuthController {
     return await this.authService.register(createUserDto);
   }
 
-  @MessagePattern({ cmd: 'getUserByEmail' })
-  async getUserByEmail(@Payload() email: string) {
-    return await this.authService.getUserByEmail(email);
+  @MessagePattern({ cmd: 'login' })
+  async login(@Payload() loginDto: ILoginDto) {
+    return await this.authService.login(loginDto);
   }
 
-  @MessagePattern({ cmd: 'getUserById' })
-  async getUserById(@Payload() id: string) {
-    return await this.authService.getUserById(id);
+  @MessagePattern({ cmd: 'refresh' })
+  async refresh(@Payload() refreshTokenDto: IRefreshTokenDto) {
+    return await this.authService.refreshTokens(refreshTokenDto);
   }
 }
