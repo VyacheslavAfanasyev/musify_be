@@ -9,6 +9,7 @@ import {
   IRefreshTokenDto,
   IChangePasswordDto,
   IBaseResponse,
+  getErrorMessage,
 } from "@app/shared";
 
 @Injectable()
@@ -58,7 +59,7 @@ export class AuthService {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: getErrorMessage(error, "User service unavailable"),
       };
     }
   }
@@ -156,7 +157,7 @@ export class AuthService {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: getErrorMessage(error, "User service unavailable"),
       };
     }
   }
@@ -211,10 +212,16 @@ export class AuthService {
         accessToken,
         refreshToken: newRefreshToken,
       };
-    } catch (_error) {
+    } catch (error) {
+      if (error instanceof Error && error.name === "JsonWebTokenError") {
+        return {
+          success: false,
+          error: "Invalid or expired refresh token",
+        };
+      }
       return {
         success: false,
-        error: "Invalid or expired refresh token",
+        error: getErrorMessage(error, "User service unavailable"),
       };
     }
   }
@@ -234,7 +241,7 @@ export class AuthService {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: getErrorMessage(error, "User service unavailable"),
       };
     }
   }
