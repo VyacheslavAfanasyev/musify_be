@@ -21,3 +21,9 @@ export interface ILoginDto {
 export interface IRefreshTokenDto {
   refreshToken: string;
 }
+
+export interface IChangePasswordDto {
+  userId: string;
+  oldPassword: string;
+  newPassword: string;
+}

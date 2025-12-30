@@ -87,4 +87,28 @@ export class UserController {
       };
     }
   }
+
+  @MessagePattern({ cmd: "updatePassword" })
+  async updatePassword(
+    @Payload()
+    payload: {
+      userId: string;
+      oldPassword: string;
+      newPassword: string;
+    },
+  ) {
+    try {
+      const result = await this.usersService.updatePassword(
+        payload.userId,
+        payload.oldPassword,
+        payload.newPassword,
+      );
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
 }

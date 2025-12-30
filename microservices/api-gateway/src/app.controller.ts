@@ -2,7 +2,12 @@ import { Controller, Get, Inject, Post, Body } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom, Observable } from 'rxjs';
 import { AppService } from './app.service';
-import type { ICreateUserDto, ILoginDto, IRefreshTokenDto } from '@app/shared';
+import type {
+  IChangePasswordDto,
+  ICreateUserDto,
+  ILoginDto,
+  IRefreshTokenDto,
+} from '@app/shared';
 
 @Controller()
 export class AppController {
@@ -70,5 +75,16 @@ export class AppController {
       | { success: false; error: string },
       IRefreshTokenDto
     >('refresh', refreshTokenDto);
+  }
+
+  @Post('auth/change_pass')
+  changePassword(@Body() changePasswordDto: IChangePasswordDto) {
+    return this.sendToAuthService<
+      {
+        success: boolean;
+        error?: string;
+      },
+      IChangePasswordDto
+    >('changePassword', changePasswordDto);
   }
 }

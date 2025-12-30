@@ -3,7 +3,12 @@ import { JwtService } from "@nestjs/jwt";
 import { ClientProxy } from "@nestjs/microservices";
 import { firstValueFrom } from "rxjs";
 import * as bcrypt from "bcrypt";
-import { ICreateUserDto, ILoginDto, IRefreshTokenDto } from "@app/shared";
+import {
+  ICreateUserDto,
+  ILoginDto,
+  IRefreshTokenDto,
+  IChangePasswordDto,
+} from "@app/shared";
 
 @Injectable()
 export class AuthService {
@@ -209,6 +214,26 @@ export class AuthService {
       return {
         success: false,
         error: "Invalid or expired refresh token",
+      };
+    }
+  }
+
+  async changePassword(changePasswordDto: IChangePasswordDto) {
+    try {
+      const result = await this.sendToUserService<{
+        success: boolean;
+        error?: string;
+      }>("updatePassword", {
+        userId: changePasswordDto.userId,
+        oldPassword: changePasswordDto.oldPassword,
+        newPassword: changePasswordDto.newPassword,
+      });
+
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }

@@ -1,7 +1,12 @@
 import { Controller } from "@nestjs/common";
 import { MessagePattern, Payload } from "@nestjs/microservices";
 import { AuthService } from "./auth.service";
-import type { ICreateUserDto, ILoginDto, IRefreshTokenDto } from "@app/shared";
+import type {
+  ICreateUserDto,
+  ILoginDto,
+  IRefreshTokenDto,
+  IChangePasswordDto,
+} from "@app/shared";
 
 @Controller()
 export class AuthController {
@@ -25,5 +30,10 @@ export class AuthController {
   @MessagePattern({ cmd: "refresh" })
   async refresh(@Payload() refreshTokenDto: IRefreshTokenDto) {
     return await this.authService.refreshTokens(refreshTokenDto);
+  }
+
+  @MessagePattern({ cmd: "changePassword" })
+  async changePassword(@Payload() changePasswordDto: IChangePasswordDto) {
+    return await this.authService.changePassword(changePasswordDto);
   }
 }
