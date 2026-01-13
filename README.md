@@ -58,6 +58,35 @@ docker-compose down -v
 
 Каждый микросервис - это независимое NestJS приложение, которое может быть запущено отдельно для разработки.
 
+## Исследование Docker контейнеров
+
+Для лучшего понимания внутренней структуры Docker контейнеров используйте скрипты из папки `scripts/`:
+
+```bash
+# Windows
+scripts\docker-inspect.bat      # Детальная информация о структуре контейнера
+scripts\docker-shell.bat        # Быстрый вход в интерактивную оболочку
+
+# Linux/Mac
+chmod +x scripts/docker-inspect.sh scripts/docker-shell.sh
+./scripts/docker-inspect.sh     # Детальная информация о структуре контейнера
+./scripts/docker-shell.sh       # Быстрый вход в интерактивную оболочку
+```
+
+**Быстрый способ посмотреть структуру:**
+
+```bash
+# Получить интерактивную оболочку внутри контейнера
+docker exec -it backend-user-1 sh
+
+# Внутри контейнера:
+ls -la /app          # Просмотр содержимого
+find /app -type f    # Найти все файлы
+tree /app            # Древовидная структура (если установлен)
+```
+
+Подробная документация: [scripts/docker-explore.md](scripts/docker-explore.md)
+
 ## Git структура
 
 Проект использует **monorepo** подход - один Git репозиторий для всего проекта. Это позволяет:
