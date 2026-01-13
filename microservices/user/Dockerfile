@@ -15,7 +15,7 @@ COPY microservices/user/tsconfig*.json ./
 COPY microservices/user/nest-cli.json ./
 
 # Устанавливаем зависимости (используем npm install для локальных пакетов)
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Копируем исходный код сервиса
 COPY microservices/user/src ./src
@@ -40,7 +40,7 @@ COPY microservices/user/tsconfig*.json ./
 COPY microservices/user/nest-cli.json ./
 
 # Устанавливаем все зависимости (включая devDependencies для HMR)
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Открываем порт
 EXPOSE 3002
