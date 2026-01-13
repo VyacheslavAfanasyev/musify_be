@@ -10,9 +10,11 @@ import {
   ILoginDto,
   IRefreshTokenDto,
   IChangePasswordDto,
+  ILogoutDto,
   getErrorMessage,
 } from "@app/shared";
 import { AuthUser } from "@app/shared";
+import { RedisTokenService } from "./redis-token.service";
 
 @Injectable()
 export class AuthService {
@@ -21,6 +23,7 @@ export class AuthService {
     private authUserRepository: Repository<AuthUser>,
     @Inject("USER_SERVICE") private readonly userClient: ClientProxy,
     private readonly jwtService: JwtService,
+    private readonly redisTokenService: RedisTokenService,
   ) {}
 
   getHello(): string {
@@ -309,6 +312,13 @@ export class AuthService {
         expiresIn: "7d",
       });
 
+      // Сохраняем refresh токен в Redis
+      await this.redisTokenService.saveRefreshToken(
+        authResult.user.id,
+        refreshToken,
+        7 * 24 * 60 * 60, // 7 дней в секундах
+      );
+
       return {
         success: true,
         user: {
@@ -347,6 +357,19 @@ export class AuthService {
       }
 
       const userId = String(decoded.sub);
+
+      // Проверяем, что токен не отозван (существует в Redis)
+      const isTokenValid = await this.redisTokenService.isRefreshTokenValid(
+        userId,
+        refreshTokenDto.refreshToken,
+      );
+
+      if (!isTokenValid) {
+        return {
+          success: false,
+          error: "Refresh token has been revoked",
+        };
+      }
 
       // Проверяем существование пользователя в PostgreSQL
       const authResult = await this.getUserById(userId);
@@ -387,6 +410,17 @@ export class AuthService {
       const newRefreshToken = this.jwtService.sign(payload, {
         expiresIn: "7d",
       });
+
+      // Отзываем старый токен и сохраняем новый
+      await this.redisTokenService.revokeRefreshToken(
+        userId,
+        refreshTokenDto.refreshToken,
+      );
+      await this.redisTokenService.saveRefreshToken(
+        userId,
+        newRefreshToken,
+        7 * 24 * 60 * 60, // 7 дней в секундах
+      );
 
       return {
         success: true,
@@ -457,6 +491,51 @@ export class AuthService {
       return {
         success: false,
         error: getErrorMessage(error, "Failed to update password"),
+      };
+    }
+  }
+
+  /**
+   * Выход из системы (отзыв refresh токена)
+   */
+  async logout(logoutDto: ILogoutDto) {
+    try {
+      // Декодируем токен для получения userId
+      const decoded = this.jwtService.verify(logoutDto.refreshToken);
+
+      if (
+        typeof decoded !== "object" ||
+        decoded === null ||
+        !("sub" in decoded)
+      ) {
+        return {
+          success: false,
+          error: "Invalid refresh token",
+        };
+      }
+
+      const userId = String(decoded.sub);
+
+      // Отзываем токен (удаляем из Redis)
+      await this.redisTokenService.revokeRefreshToken(
+        userId,
+        logoutDto.refreshToken,
+      );
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      // Если токен невалидный, все равно возвращаем success
+      // (токен уже недействителен, цель достигнута)
+      if (error instanceof Error && error.name === "JsonWebTokenError") {
+        return {
+          success: true,
+        };
+      }
+      return {
+        success: false,
+        error: getErrorMessage(error, "Failed to logout"),
       };
     }
   }

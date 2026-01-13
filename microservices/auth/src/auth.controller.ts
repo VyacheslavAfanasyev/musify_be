@@ -6,6 +6,7 @@ import type {
   ILoginDto,
   IRefreshTokenDto,
   IChangePasswordDto,
+  ILogoutDto,
 } from "@app/shared";
 
 @Controller()
@@ -40,5 +41,10 @@ export class AuthController {
   @MessagePattern({ cmd: "getUserById" })
   getUserById(@Payload() payload: { id: string }) {
     return this.authService.getUserById(payload.id);
+  }
+
+  @MessagePattern({ cmd: "logout" })
+  logout(@Payload() logoutDto: ILogoutDto) {
+    return this.authService.logout(logoutDto);
   }
 }

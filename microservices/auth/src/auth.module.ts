@@ -4,6 +4,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { ClientsModule, Transport } from "@nestjs/microservices";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { RedisTokenService } from "./redis-token.service";
 import { AuthUser } from "@app/shared";
 
 @Module({
@@ -49,6 +50,6 @@ import { AuthUser } from "@app/shared";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, RedisTokenService],
 })
 export class AuthModule {}

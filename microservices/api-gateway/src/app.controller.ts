@@ -6,6 +6,7 @@ import type {
   ICreateUserDto,
   ILoginDto,
   IRefreshTokenDto,
+  ILogoutDto,
   IUpdateUserProfileDto,
 } from '@app/shared';
 
@@ -38,6 +39,11 @@ export class AppController {
   @Post('auth/refresh')
   refresh(@Body() refreshTokenDto: IRefreshTokenDto) {
     return this.appService.refresh(refreshTokenDto);
+  }
+
+  @Post('auth/logout')
+  logout(@Body() logoutDto: ILogoutDto) {
+    return this.appService.logout(logoutDto);
   }
 
   @Post('auth/change_pass')

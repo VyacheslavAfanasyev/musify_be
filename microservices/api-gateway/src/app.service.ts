@@ -12,6 +12,7 @@ import type {
   ICreateUserDto,
   ILoginDto,
   IRefreshTokenDto,
+  ILogoutDto,
   IBaseResponse,
   IRegisterResponse,
   ILoginResponse,
@@ -94,6 +95,13 @@ export class AppService {
     return this.sendToAuthService<IRefreshResponse, IRefreshTokenDto>(
       'refresh',
       refreshTokenDto,
+    );
+  }
+
+  async logout(logoutDto: ILogoutDto): Promise<IBaseResponse> {
+    return this.sendToAuthService<IBaseResponse, ILogoutDto>(
+      'logout',
+      logoutDto,
     );
   }
 

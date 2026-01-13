@@ -19,3 +19,7 @@ export interface IChangePasswordDto {
   oldPassword: string;
   newPassword: string;
 }
+
+export interface ILogoutDto {
+  refreshToken: string;
+}
