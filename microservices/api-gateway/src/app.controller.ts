@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Param, Put } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AppService } from './app.service';
 import type {
   IChangePasswordDto,
@@ -23,11 +24,13 @@ export class AppController {
   }
 
   @Post('auth/register')
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 запросов в минуту
   register(@Body() registerDto: ICreateUserDto) {
     return this.appService.register(registerDto);
   }
 
   @Post('auth/login')
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 запросов в минуту
   login(@Body() loginDto: ILoginDto) {
     return this.appService.login(loginDto);
   }
