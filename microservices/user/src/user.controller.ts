@@ -13,18 +13,6 @@ export class UserController {
   }
 
   /**
-   * Обработка события создания пользователя (Saga Pattern)
-   */
-  @EventPattern("user.created")
-  async handleUserCreated(@Payload() data: ICreateUserProfileDto) {
-    const result = await this.usersService.createProfile(data);
-    if (!result.success && "error" in result) {
-      console.error("Failed to create profile:", result.error);
-      // Можно отправить событие отката, но это уже обработается в Auth Service
-    }
-  }
-
-  /**
    * Обработка события отката создания пользователя
    */
   @EventPattern("user.create.failed")
@@ -48,12 +36,6 @@ export class UserController {
   @MessagePattern({ cmd: "getProfileByUsername" })
   async getProfileByUsername(@Payload() payload: { username: string }) {
     return await this.usersService.getProfileByUsername(payload.username);
-  }
-
-  @MessagePattern({ cmd: "checkProfileExists" })
-  async checkProfileExists(@Payload() payload: { userId: string }) {
-    const exists = await this.usersService.checkProfileExists(payload.userId);
-    return { success: true, exists };
   }
 
   /**
@@ -86,15 +68,6 @@ export class UserController {
   @MessagePattern({ cmd: "getAllProfiles" })
   async getAllProfiles() {
     return await this.usersService.findAll();
-  }
-
-  // Обратная совместимость (старые методы, которые больше не используются)
-  @MessagePattern({ cmd: "createUser" })
-  createUser() {
-    return {
-      success: false,
-      error: "Use user.created event instead",
-    };
   }
 
   @MessagePattern({ cmd: "getUserByEmail" })

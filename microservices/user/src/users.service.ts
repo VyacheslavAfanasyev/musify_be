@@ -17,9 +17,6 @@ export class UsersService {
     private userProfileModel: Model<UserProfileDocument>,
   ) {}
 
-  /**
-   * Создание профиля пользователя (вызывается через событие user.created)
-   */
   async createProfile(
     createProfileDto: ICreateUserProfileDto,
   ): Promise<
@@ -210,18 +207,6 @@ export class UsersService {
         success: false,
         error: getErrorMessage(error, "Failed to find profile"),
       };
-    }
-  }
-
-  /**
-   * Проверка существования профиля
-   */
-  async checkProfileExists(userId: string): Promise<boolean> {
-    try {
-      const profile = await this.userProfileModel.findOne({ userId });
-      return !!profile;
-    } catch (_error) {
-      return false;
     }
   }
 

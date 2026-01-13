@@ -23,15 +23,8 @@ export class AppController {
   }
 
   @Post('auth/register')
-  async register(@Body() registerDto: ICreateUserDto) {
-    try {
-      return await this.appService.register(registerDto);
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Internal server error',
-      };
-    }
+  register(@Body() registerDto: ICreateUserDto) {
+    return this.appService.register(registerDto);
   }
 
   @Post('auth/login')

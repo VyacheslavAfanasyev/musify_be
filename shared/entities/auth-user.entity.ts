@@ -23,4 +23,3 @@ export class AuthUser {
   @CreateDateColumn()
   createdAt: Date;
 }
-

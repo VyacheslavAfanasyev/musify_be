@@ -141,13 +141,6 @@ export class AuthService {
           };
         }
 
-        // Также отправляем событие для других сервисов (если нужно)
-        this.userClient.emit("user.created", {
-          userId: savedUser.id,
-          username: createUserDto.username,
-          role: createUserDto.role || "listener",
-        });
-
         const { password: _password, ...userWithoutPassword } = savedUser;
 
         return {
@@ -191,23 +184,6 @@ export class AuthService {
         success: false,
         error: getErrorMessage(error, "Failed to register user"),
       };
-    }
-  }
-
-  /**
-   * Проверка существования профиля пользователя
-   */
-  private async checkProfileExists(userId: string): Promise<boolean> {
-    try {
-      const result = await firstValueFrom(
-        this.userClient.send<{ success: boolean; exists?: boolean }>(
-          { cmd: "checkProfileExists" },
-          { userId },
-        ),
-      );
-      return result.exists || false;
-    } catch (_error) {
-      return false;
     }
   }
 

@@ -18,27 +18,27 @@ export class AuthController {
   }
 
   @MessagePattern({ cmd: "register" })
-  async register(@Payload() createUserDto: ICreateUserDto) {
-    return await this.authService.register(createUserDto);
+  register(@Payload() createUserDto: ICreateUserDto) {
+    return this.authService.register(createUserDto);
   }
 
   @MessagePattern({ cmd: "login" })
-  async login(@Payload() loginDto: ILoginDto) {
-    return await this.authService.login(loginDto);
+  login(@Payload() loginDto: ILoginDto) {
+    return this.authService.login(loginDto);
   }
 
   @MessagePattern({ cmd: "refresh" })
-  async refresh(@Payload() refreshTokenDto: IRefreshTokenDto) {
-    return await this.authService.refreshTokens(refreshTokenDto);
+  refresh(@Payload() refreshTokenDto: IRefreshTokenDto) {
+    return this.authService.refreshTokens(refreshTokenDto);
   }
 
   @MessagePattern({ cmd: "changePassword" })
-  async changePassword(@Payload() changePasswordDto: IChangePasswordDto) {
-    return await this.authService.changePassword(changePasswordDto);
+  changePassword(@Payload() changePasswordDto: IChangePasswordDto) {
+    return this.authService.changePassword(changePasswordDto);
   }
 
   @MessagePattern({ cmd: "getUserById" })
-  async getUserById(@Payload() payload: { id: string }) {
-    return await this.authService.getUserById(payload.id);
+  getUserById(@Payload() payload: { id: string }) {
+    return this.authService.getUserById(payload.id);
   }
 }
