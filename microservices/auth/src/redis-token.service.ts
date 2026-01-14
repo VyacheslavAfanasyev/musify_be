@@ -84,4 +84,84 @@ export class RedisTokenService implements OnModuleInit, OnModuleDestroy {
     const key = `refresh_token:${userId}:${tokenHash}`;
     await this.redisClient.del(key);
   }
+
+  /**
+   * Кэширование данных пользователя на 10 минут
+   */
+  async cacheUserData(
+    userId: string,
+    userData: { id: string; email: string; password?: string },
+    ttl: number = 10 * 60, // 10 минут по умолчанию
+  ): Promise<void> {
+    const key = `user_data:${userId}`;
+    // Не кэшируем пароль для безопасности
+    const dataToCache = {
+      id: userData.id,
+      email: userData.email,
+    };
+    await this.redisClient.setex(key, ttl, JSON.stringify(dataToCache));
+  }
+
+  /**
+   * Получение данных пользователя из кэша
+   */
+  async getCachedUserData(
+    userId: string,
+  ): Promise<{ id: string; email: string } | null> {
+    const key = `user_data:${userId}`;
+    const cached = await this.redisClient.get(key);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+    return null;
+  }
+
+  /**
+   * Инвалидация кэша пользователя
+   */
+  async invalidateUserCache(userId: string): Promise<void> {
+    const key = `user_data:${userId}`;
+    await this.redisClient.del(key);
+  }
+
+  /**
+   * Кэширование данных пользователя по email (для getUserByEmail)
+   * Включая пароль для проверки при логине
+   */
+  async cacheUserDataByEmail(
+    email: string,
+    userData: { id: string; email: string; password?: string },
+    ttl: number = 10 * 60, // 10 минут по умолчанию
+  ): Promise<void> {
+    const key = `user_data:email:${email}`;
+    // Кэшируем с паролем для проверки при логине (TTL короткий - 10 минут)
+    const dataToCache = {
+      id: userData.id,
+      email: userData.email,
+      password: userData.password, // Нужен для проверки пароля при логине
+    };
+    await this.redisClient.setex(key, ttl, JSON.stringify(dataToCache));
+  }
+
+  /**
+   * Получение данных пользователя из кэша по email
+   */
+  async getCachedUserDataByEmail(
+    email: string,
+  ): Promise<{ id: string; email: string; password?: string } | null> {
+    const key = `user_data:email:${email}`;
+    const cached = await this.redisClient.get(key);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+    return null;
+  }
+
+  /**
+   * Инвалидация кэша пользователя по email
+   */
+  async invalidateUserCacheByEmail(email: string): Promise<void> {
+    const key = `user_data:email:${email}`;
+    await this.redisClient.del(key);
+  }
 }

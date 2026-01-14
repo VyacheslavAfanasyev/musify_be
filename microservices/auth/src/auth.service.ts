@@ -192,14 +192,51 @@ export class AuthService {
 
   /**
    * Получение пользователя по email (только для внутреннего использования)
+   * С кэшированием данных на 10 минут
    */
   async getUserByEmail(email: string) {
     try {
+      // Проверяем кэш
+      const cachedUser =
+        await this.redisTokenService.getCachedUserDataByEmail(email);
+      if (cachedUser && cachedUser.password) {
+        return {
+          success: true,
+          user: {
+            id: cachedUser.id,
+            email: cachedUser.email,
+            password: cachedUser.password,
+          },
+        };
+      }
+
+      // Если нет в кэше, загружаем из PostgreSQL
       const user = await this.authUserRepository.findOne({
         where: { email },
       });
 
       if (user) {
+        // Кэшируем данные пользователя на 10 минут (включая пароль для проверки)
+        await this.redisTokenService.cacheUserDataByEmail(
+          user.email,
+          {
+            id: user.id,
+            email: user.email,
+            password: user.password,
+          },
+          10 * 60, // 10 минут
+        );
+
+        // Также кэшируем по ID для getUserById
+        await this.redisTokenService.cacheUserData(
+          user.id,
+          {
+            id: user.id,
+            email: user.email,
+          },
+          10 * 60, // 10 минут
+        );
+
         return {
           success: true,
           user: {
@@ -224,14 +261,38 @@ export class AuthService {
 
   /**
    * Получение пользователя по ID (только для внутреннего использования)
+   * С кэшированием данных на 10 минут
    */
   async getUserById(id: string) {
     try {
+      // Проверяем кэш
+      const cachedUser = await this.redisTokenService.getCachedUserData(id);
+      if (cachedUser) {
+        return {
+          success: true,
+          user: {
+            id: cachedUser.id,
+            email: cachedUser.email,
+          },
+        };
+      }
+
+      // Если нет в кэше, загружаем из PostgreSQL
       const user = await this.authUserRepository.findOne({
         where: { id },
       });
 
       if (user) {
+        // Кэшируем данные пользователя на 10 минут
+        await this.redisTokenService.cacheUserData(
+          user.id,
+          {
+            id: user.id,
+            email: user.email,
+          },
+          10 * 60, // 10 минут
+        );
+
         return {
           success: true,
           user: {
@@ -483,6 +544,10 @@ export class AuthService {
 
       user.password = hashedPassword;
       await this.authUserRepository.save(user);
+
+      // Инвалидируем кэш пользователя при изменении пароля
+      await this.redisTokenService.invalidateUserCache(user.id);
+      await this.redisTokenService.invalidateUserCacheByEmail(user.email);
 
       return {
         success: true,
