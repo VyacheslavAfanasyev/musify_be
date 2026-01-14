@@ -119,6 +119,44 @@ services:
       - USER_QUEUE=user_queue
     restart: unless-stopped
 
+  media:
+    build:
+      context: .
+      dockerfile: ./microservices/media/Dockerfile
+      target: development
+    ports:
+      - "3003:3003"
+    volumes:
+      # Монтируем исходный код для HMR
+      - ./microservices/media/src:/app/src
+      - ./microservices/media/package.json:/app/package.json
+      - ./microservices/media/tsconfig.json:/app/tsconfig.json
+      - ./microservices/media/tsconfig.build.json:/app/tsconfig.build.json
+      - ./microservices/media/nest-cli.json:/app/nest-cli.json
+      - ./microservices/media/nodemon.json:/app/nodemon.json
+      - ./shared:/app/shared
+      # Исключаем node_modules из монтирования (используем из образа)
+      - /app/node_modules
+      - uploads_volume:/app/uploads
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      user:
+        condition: service_started
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URL=mongodb://root:secret@mongodb:27017/music_app?authSource=admin
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - MEDIA_QUEUE=media_queue
+      - USER_QUEUE=user_queue
+      - UPLOAD_DIR=/app/uploads
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -142,22 +180,15 @@ services:
         condition: service_healthy
       auth:
         condition: service_started
+      media:
+        condition: service_started
     environment:
       - NODE_ENV=development
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - AUTH_QUEUE=auth_queue
+      - USER_QUEUE=user_queue
+      - MEDIA_QUEUE=media_queue
     restart: unless-stopped
-
-  # template:
-  #   build:
-  #     context: .
-  #     dockerfile: ./microservices/template/Dockerfile
-  #   ports:
-  #     - "3002:3002"
-  #   depends_on:
-  #     - rabbitmq
-  #   environment:
-  #     - RABBITMQ_URL=amqp://rabbitmq:5672
 
 volumes:
   postgres_data:

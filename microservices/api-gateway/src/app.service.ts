@@ -25,6 +25,7 @@ export class AppService {
   constructor(
     @Inject('AUTH_SERVICE') private readonly authClient: ClientProxy,
     @Inject('USER_SERVICE') private readonly userClient: ClientProxy,
+    @Inject('MEDIA_SERVICE') private readonly mediaClient: ClientProxy,
   ) {}
 
   getHello(): string {
@@ -66,6 +67,27 @@ export class AppService {
         catchError((error) => {
           if (error.name === 'TimeoutError') {
             return throwError(() => new Error(`User Service timeout: ${cmd}`));
+          }
+          return throwError(() => error);
+        }),
+      ),
+    );
+  }
+
+  private async sendToMediaService<TResponse, TInput = unknown>(
+    cmd: string,
+    payload: TInput,
+  ): Promise<TResponse> {
+    const observable = this.mediaClient.send<TResponse, TInput>(
+      { cmd },
+      payload,
+    ) as unknown as Observable<TResponse>;
+    return await firstValueFrom(
+      observable.pipe(
+        timeout(30000), // 30 секунд таймаут для загрузки файлов
+        catchError((error) => {
+          if (error.name === 'TimeoutError') {
+            return throwError(() => new Error(`Media Service timeout: ${cmd}`));
           }
           return throwError(() => error);
         }),
@@ -230,5 +252,149 @@ export class AppService {
         updateDto: IUpdateUserProfileDto;
       }
     >('updateProfile', { userId, updateDto });
+  }
+
+  /**
+   * Загрузка аватарки пользователя
+   */
+  async uploadAvatar(userId: string, file: any) {
+    try {
+      // Конвертируем файл в формат, который можно передать через RabbitMQ
+      // RabbitMQ не может напрямую передать Express.Multer.File, поэтому передаем буфер и метаданные
+      // Buffer нужно конвертировать в Uint8Array для сериализации через RabbitMQ
+      const fileData = {
+        fieldname: file.fieldname,
+        originalname: file.originalname,
+        encoding: file.encoding,
+        mimetype: file.mimetype,
+        size: file.size,
+        buffer: new Uint8Array(file.buffer),
+      };
+
+      return await this.sendToMediaService<
+        { success: true; file: any } | { success: false; error: string },
+        { userId: string; type: 'avatar'; file: any }
+      >('uploadFile', {
+        userId,
+        type: 'avatar',
+        file: fileData,
+      });
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Получение аватарки пользователя
+   */
+  async getUserAvatar(userId: string) {
+    try {
+      const result = await this.sendToMediaService<
+        | { success: true; file: any; buffer: Uint8Array | Buffer }
+        | { success: false; error: string },
+        { userId: string }
+      >('getUserAvatar', { userId });
+
+      // Конвертируем Uint8Array обратно в Buffer после получения через RabbitMQ
+      if (result.success && 'buffer' in result) {
+        let buffer: Buffer;
+        if (result.buffer instanceof Buffer) {
+          buffer = result.buffer;
+        } else if (result.buffer instanceof Uint8Array) {
+          buffer = Buffer.from(result.buffer);
+        } else {
+          // Plain object после JSON сериализации - конвертируем в массив, затем в Buffer
+          const bufferData = result.buffer as unknown;
+          let bufferArray: number[];
+          if (Array.isArray(bufferData)) {
+            bufferArray = bufferData.map((val) => Number(val));
+          } else if (bufferData && typeof bufferData === 'object') {
+            bufferArray = Object.values(bufferData).map((val) => Number(val));
+          } else {
+            throw new Error('Invalid buffer format after serialization');
+          }
+          buffer = Buffer.from(bufferArray);
+        }
+
+        return {
+          ...result,
+          buffer,
+        };
+      }
+
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Получение файла по ID
+   */
+  async getFileById(fileId: string) {
+    try {
+      const result = await this.sendToMediaService<
+        | { success: true; file: any; buffer: Uint8Array | Buffer }
+        | { success: false; error: string },
+        { fileId: string }
+      >('getFileById', { fileId });
+
+      // Конвертируем Uint8Array обратно в Buffer после получения через RabbitMQ
+      if (result.success && 'buffer' in result) {
+        let buffer: Buffer;
+        if (result.buffer instanceof Buffer) {
+          buffer = result.buffer;
+        } else if (result.buffer instanceof Uint8Array) {
+          buffer = Buffer.from(result.buffer);
+        } else {
+          // Plain object после JSON сериализации - конвертируем в массив, затем в Buffer
+          const bufferData = result.buffer as unknown;
+          let bufferArray: number[];
+          if (Array.isArray(bufferData)) {
+            bufferArray = bufferData.map((val) => Number(val));
+          } else if (bufferData && typeof bufferData === 'object') {
+            bufferArray = Object.values(bufferData).map((val) => Number(val));
+          } else {
+            throw new Error('Invalid buffer format after serialization');
+          }
+          buffer = Buffer.from(bufferArray);
+        }
+
+        return {
+          ...result,
+          buffer,
+        };
+      }
+
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Удаление файла
+   */
+  async deleteFile(fileId: string) {
+    try {
+      return await this.sendToMediaService<
+        { success: boolean; error?: string },
+        { fileId: string }
+      >('deleteFile', { fileId });
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 }

@@ -20,7 +20,6 @@ export class RedisTokenService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     try {
       await this.redisClient.ping();
-      console.log("Redis connected successfully");
     } catch (error) {
       console.error("Failed to connect to Redis:", error);
     }

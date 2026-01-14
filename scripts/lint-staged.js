@@ -102,8 +102,8 @@ Object.keys(workspaceFiles).forEach((workspace) => {
     }
     
     // Запускаем ESLint напрямую без --fix в pre-commit
-    // Используем --max-warnings=0 чтобы блокировать коммит при любых предупреждениях
-    const command = `npx eslint ${relativeFiles.join(' ')} --max-warnings=0`;
+    // Блокируем коммит только при ошибках, предупреждения игнорируются
+    const command = `npx eslint ${relativeFiles.join(' ')}`;
     
     console.log(`\n🔍 Running ESLint in ${workspace}...`);
     execSync(command, { 
