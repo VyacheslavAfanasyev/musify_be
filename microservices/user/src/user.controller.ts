@@ -60,6 +60,20 @@ export class UserController {
     );
   }
 
+  @MessagePattern({ cmd: "updateTracksCount" })
+  async updateTracksCount(
+    @Payload()
+    payload: {
+      userId: string;
+      delta: number;
+    },
+  ) {
+    return await this.usersService.updateTracksCount(
+      payload.userId,
+      payload.delta,
+    );
+  }
+
   @MessagePattern({ cmd: "deleteProfile" })
   deleteProfile(@Payload() payload: { userId: string }) {
     return this.usersService.deleteProfile(payload.userId);

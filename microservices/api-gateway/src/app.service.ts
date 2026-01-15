@@ -288,6 +288,37 @@ export class AppService {
   }
 
   /**
+   * Загрузка трека пользователя
+   */
+  async uploadTrack(userId: string, file: any) {
+    try {
+      // Конвертируем файл в формат, который можно передать через RabbitMQ
+      const fileData = {
+        fieldname: file.fieldname,
+        originalname: file.originalname,
+        encoding: file.encoding,
+        mimetype: file.mimetype,
+        size: file.size,
+        buffer: new Uint8Array(file.buffer),
+      };
+
+      return await this.sendToMediaService<
+        { success: true; file: any } | { success: false; error: string },
+        { userId: string; type: 'track'; file: any }
+      >('uploadFile', {
+        userId,
+        type: 'track',
+        file: fileData,
+      });
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
    * Получение аватарки пользователя
    */
   async getUserAvatar(userId: string) {
@@ -373,6 +404,115 @@ export class AppService {
       }
 
       return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Получение трека по ID с поддержкой range requests
+   */
+  async getTrack(
+    trackId: string,
+    range?: { start: number; end: number },
+  ): Promise<
+    | {
+        success: true;
+        file: any;
+        buffer: Buffer;
+        start?: number;
+        end?: number;
+        totalSize: number;
+      }
+    | { success: false; error: string }
+  > {
+    try {
+      const result = await this.sendToMediaService<
+        | {
+            success: true;
+            file: any;
+            buffer: Uint8Array | Buffer;
+            start?: number;
+            end?: number;
+            totalSize: number;
+          }
+        | { success: false; error: string },
+        { trackId: string; range?: { start: number; end: number } }
+      >('getTrackById', { trackId, range });
+
+      // Конвертируем Uint8Array обратно в Buffer после получения через RabbitMQ
+      if (result.success && 'buffer' in result) {
+        let buffer: Buffer;
+        if (result.buffer instanceof Buffer) {
+          buffer = result.buffer;
+        } else if (result.buffer instanceof Uint8Array) {
+          buffer = Buffer.from(result.buffer);
+        } else {
+          // Plain object после JSON сериализации - конвертируем в массив, затем в Buffer
+          const bufferData = result.buffer as unknown;
+          let bufferArray: number[];
+          if (Array.isArray(bufferData)) {
+            bufferArray = bufferData.map((val) => Number(val));
+          } else if (bufferData && typeof bufferData === 'object') {
+            bufferArray = Object.values(bufferData).map((val) => Number(val));
+          } else {
+            throw new Error('Invalid buffer format after serialization');
+          }
+          buffer = Buffer.from(bufferArray);
+        }
+
+        return {
+          success: true,
+          file: result.file,
+          buffer,
+          start: result.start,
+          end: result.end,
+          totalSize: result.totalSize,
+        };
+      }
+
+      // Если не успешно, возвращаем ошибку
+      return {
+        success: false,
+        error: 'error' in result ? result.error : 'Unknown error',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Получение треков пользователя по username
+   */
+  async getUserTracks(username: string) {
+    try {
+      // Сначала получаем userId по username
+      const profileResult = await this.sendToUserService<{
+        success: boolean;
+        profile?: any;
+        error?: string;
+      }>('getProfileByUsername', { username });
+
+      if (!profileResult.success || !profileResult.profile) {
+        return {
+          success: false,
+          error: profileResult.error || 'User not found',
+        };
+      }
+
+      const userId = profileResult.profile.userId || profileResult.profile._id;
+
+      // Получаем треки пользователя
+      return await this.sendToMediaService<
+        { success: true; tracks: any[] } | { success: false; error: string },
+        { userId: string }
+      >('getUserTracks', { userId });
     } catch (error) {
       return {
         success: false,

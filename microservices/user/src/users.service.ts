@@ -310,6 +310,54 @@ export class UsersService {
   }
 
   /**
+   * Обновление счетчика треков пользователя
+   */
+  async updateTracksCount(
+    userId: string,
+    delta: number,
+  ): Promise<IBaseResponse> {
+    try {
+      const profile = await this.userProfileModel.findOne({ userId });
+
+      if (!profile) {
+        return {
+          success: false,
+          error: "Profile not found",
+        };
+      }
+
+      // Сохраняем username для инвалидации кэша
+      const username = profile.username;
+
+      // Обновляем счетчик треков
+      const currentCount = profile.stats?.tracksCount || 0;
+      const newCount = Math.max(0, currentCount + delta);
+
+      profile.stats = {
+        ...profile.stats,
+        tracksCount: newCount,
+      };
+
+      const updatedProfile = await profile.save();
+
+      // Инвалидируем кэш перед обновлением
+      await this.invalidateProfileCache(userId, username);
+
+      // Кэшируем обновленный профиль
+      await this.cacheProfile(updatedProfile);
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: getErrorMessage(error, "Failed to update tracks count"),
+      };
+    }
+  }
+
+  /**
    * Получение всех профилей
    */
   async findAll(): Promise<

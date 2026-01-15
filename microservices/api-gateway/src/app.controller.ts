@@ -90,6 +90,11 @@ export class AppController {
     return this.appService.getUserProfileByUsername(username);
   }
 
+  @Get('users/:username/tracks')
+  getUserTracks(@Param('username') username: string) {
+    return this.appService.getUserTracks(username);
+  }
+
   @Put('users/:id/profile')
   updateUserProfile(
     @Param('id') id: string,
@@ -121,6 +126,31 @@ export class AppController {
     }
 
     return await this.appService.uploadAvatar(userId, file);
+  }
+
+  @Post('media/upload/track')
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 запросов в минуту
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadTrack(
+    @UploadedFile() file: UploadedFileType | undefined,
+    @Body() body: { userId?: string; type?: string },
+  ): Promise<{ success: boolean; file?: any; error?: string }> {
+    const userId = body?.userId;
+    if (!file) {
+      return {
+        success: false,
+        error: 'File is required',
+      };
+    }
+
+    if (!userId) {
+      return {
+        success: false,
+        error: 'userId is required',
+      };
+    }
+
+    return await this.appService.uploadTrack(userId, file);
   }
 
   @Get('media/avatar/:userId')
@@ -158,6 +188,59 @@ export class AppController {
     res.setHeader('Content-Length', String(result.file.size));
     res.setHeader('Cache-Control', 'public, max-age=3600');
     return res.send(result.buffer);
+  }
+
+  @Get('media/track/:trackId')
+  async getTrack(
+    @Param('trackId') trackId: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    // Парсим Range заголовок для поддержки стриминга
+    const rangeHeader = res.req.headers.range;
+    let range: { start: number; end: number } | undefined;
+
+    if (rangeHeader) {
+      const parts = rangeHeader.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : undefined;
+      if (!isNaN(start)) {
+        range = {
+          start,
+          end: end && !isNaN(end) ? end : start + 1024 * 1024 - 1, // 1MB chunks
+        };
+      }
+    }
+
+    const result = await this.appService.getTrack(trackId, range);
+
+    if (!result.success || !('buffer' in result)) {
+      const errorMessage = 'error' in result ? result.error : 'Track not found';
+      res.status(HttpStatus.NOT_FOUND).json({
+        success: false,
+        error: errorMessage,
+      });
+      return;
+    }
+
+    const { file, buffer, start, end, totalSize } = result;
+
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Accept-Ranges', 'bytes');
+
+    // Если запрошен range, отправляем частичный контент
+    if (start !== undefined && end !== undefined) {
+      const contentLength = end - start + 1;
+      res.status(HttpStatus.PARTIAL_CONTENT);
+      res.setHeader('Content-Length', String(contentLength));
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${totalSize}`);
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.send(buffer);
+    } else {
+      // Иначе отправляем весь файл
+      res.setHeader('Content-Length', String(totalSize));
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.send(buffer);
+    }
   }
 
   @Delete('media/file/:fileId')

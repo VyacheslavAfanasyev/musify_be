@@ -3,6 +3,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { v4 as uuidv4 } from "uuid";
 import sharp from "sharp";
+import { parseBuffer } from "music-metadata";
 import type { IFileData } from "@app/shared";
 
 @Injectable()
@@ -137,6 +138,27 @@ export class StorageService {
   }
 
   /**
+   * Получает метаданные аудиофайла
+   */
+  async getAudioMetadata(buffer: Buffer): Promise<{
+    duration?: number;
+    bitrate?: number;
+    format?: string;
+  }> {
+    try {
+      const metadata = await parseBuffer(buffer);
+      return {
+        duration: metadata.format.duration,
+        bitrate: metadata.format.bitrate,
+        format: metadata.format.container,
+      };
+    } catch (error) {
+      this.logger.warn(`Failed to get audio metadata: ${error}`);
+      return {};
+    }
+  }
+
+  /**
    * Читает файл с диска
    */
   async readFile(filePath: string): Promise<Buffer> {
@@ -144,6 +166,39 @@ export class StorageService {
       return await fs.readFile(filePath);
     } catch (error) {
       this.logger.error(`Failed to read file: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Читает часть файла с диска (для range requests)
+   */
+  async readFileRange(
+    filePath: string,
+    start: number,
+    end: number,
+  ): Promise<Buffer> {
+    try {
+      const fileHandle = await fs.open(filePath, "r");
+      const buffer = Buffer.alloc(end - start + 1);
+      await fileHandle.read(buffer, 0, end - start + 1, start);
+      await fileHandle.close();
+      return buffer;
+    } catch (error) {
+      this.logger.error(`Failed to read file range: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Получает размер файла
+   */
+  async getFileSize(filePath: string): Promise<number> {
+    try {
+      const stats = await fs.stat(filePath);
+      return stats.size;
+    } catch (error) {
+      this.logger.error(`Failed to get file size: ${error}`);
       throw error;
     }
   }
