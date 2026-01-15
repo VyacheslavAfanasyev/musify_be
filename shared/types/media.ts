@@ -6,7 +6,31 @@ export interface IMediaFile {
   fileName: string;
   mimeType: string;
   size: number;
-  path: string;
+  path: string; // Внутренний путь, используется только на сервере
+  url: string;
+  metadata?: {
+    duration?: number;
+    bitrate?: number;
+    format?: string;
+    width?: number;
+    height?: number;
+  };
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+/**
+ * Публичный интерфейс для ответов API (без внутреннего path)
+ * Используется для возврата данных клиенту
+ */
+export interface IMediaFileResponse {
+  fileId: string;
+  userId: string;
+  type: "avatar" | "track" | "cover" | "other";
+  originalName: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
   url: string;
   metadata?: {
     duration?: number;

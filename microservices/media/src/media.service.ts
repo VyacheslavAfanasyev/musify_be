@@ -9,6 +9,7 @@ import {
   MediaFile,
   MediaFileDocument,
   IMediaFile,
+  IMediaFileResponse,
   IUploadFileDto,
   IFileData,
   getErrorMessage,
@@ -50,7 +51,8 @@ export class MediaService {
   async uploadFile(
     uploadDto: IUploadFileDto,
   ): Promise<
-    { success: true; file: IMediaFile } | { success: false; error: string }
+    | { success: true; file: IMediaFileResponse }
+    | { success: false; error: string }
   > {
     try {
       const { userId, type, file } = uploadDto;
@@ -163,15 +165,15 @@ export class MediaService {
       // Кэшируем файл
       await this.cacheFile(savedFile);
 
-      const fileData: IMediaFile = {
+      // Возвращаем публичный ответ без внутреннего path
+      const fileData: IMediaFileResponse = {
         fileId: savedFile.fileId,
         userId: savedFile.userId,
-        type: savedFile.type as IMediaFile["type"],
+        type: savedFile.type as IMediaFileResponse["type"],
         originalName: savedFile.originalName,
         fileName: savedFile.fileName,
         mimeType: savedFile.mimeType,
         size: savedFile.size,
-        path: savedFile.path,
         url: savedFile.url,
         metadata: savedFile.metadata,
         createdAt: savedFile.createdAt,
@@ -362,12 +364,14 @@ export class MediaService {
   async getUserTracks(
     userId: string,
   ): Promise<
-    { success: true; tracks: IMediaFile[] } | { success: false; error: string }
+    | { success: true; tracks: IMediaFileResponse[] }
+    | { success: false; error: string }
   > {
     try {
       // Проверяем кэш
       const cacheKey = `tracks:${userId}`;
-      const cachedTracks = await this.cacheManager.get<IMediaFile[]>(cacheKey);
+      const cachedTracks =
+        await this.cacheManager.get<IMediaFileResponse[]>(cacheKey);
 
       if (cachedTracks) {
         this.logger.log(`[CACHE HIT] Tracks found in cache: ${userId}`);
@@ -379,15 +383,15 @@ export class MediaService {
         .sort({ createdAt: -1 })
         .exec();
 
-      const tracksData: IMediaFile[] = tracks.map((track) => ({
+      // Возвращаем публичные данные без внутреннего path
+      const tracksData: IMediaFileResponse[] = tracks.map((track) => ({
         fileId: track.fileId,
         userId: track.userId,
-        type: track.type as IMediaFile["type"],
+        type: track.type as IMediaFileResponse["type"],
         originalName: track.originalName,
         fileName: track.fileName,
         mimeType: track.mimeType,
         size: track.size,
-        path: track.path,
         url: track.url,
         metadata: track.metadata,
         createdAt: track.createdAt,
