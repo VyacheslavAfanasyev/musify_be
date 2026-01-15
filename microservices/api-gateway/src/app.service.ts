@@ -95,6 +95,58 @@ export class AppService {
     );
   }
 
+  /**
+   * Конвертирует buffer из различных форматов (Buffer, Uint8Array, plain object)
+   * в Buffer для использования после получения через RabbitMQ
+   */
+  private convertBufferToBuffer(buffer: unknown): Buffer {
+    if (buffer instanceof Buffer) {
+      return buffer;
+    }
+
+    if (buffer instanceof Uint8Array) {
+      return Buffer.from(buffer);
+    }
+
+    // Plain object после JSON сериализации - конвертируем в массив, затем в Buffer
+    let bufferArray: number[];
+
+    if (Array.isArray(buffer)) {
+      bufferArray = buffer.map((val) => Number(val));
+    } else if (buffer && typeof buffer === 'object') {
+      bufferArray = Object.values(buffer).map((val) => Number(val));
+    } else {
+      throw new Error('Invalid buffer format after serialization');
+    }
+
+    return Buffer.from(bufferArray);
+  }
+
+  /**
+   * Подготавливает файл для передачи через RabbitMQ
+   * Конвертирует Express.Multer.File в формат, который можно сериализовать
+   */
+  private prepareFileForUpload(file: any) {
+    return {
+      fieldname: file.fieldname,
+      originalname: file.originalname,
+      encoding: file.encoding,
+      mimetype: file.mimetype,
+      size: file.size,
+      buffer: new Uint8Array(file.buffer),
+    };
+  }
+
+  /**
+   * Обрабатывает ошибки и возвращает стандартизированный ответ
+   */
+  private handleError(error: unknown): { success: false; error: string } {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+
   async getAuthHello(): Promise<string> {
     return this.sendToAuthService<string, Record<string, never>>(
       'getHello',
@@ -184,10 +236,7 @@ export class AppService {
         },
       };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      return this.handleError(error);
     }
   }
 
@@ -231,10 +280,7 @@ export class AppService {
         },
       };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      return this.handleError(error);
     }
   }
 
@@ -259,17 +305,7 @@ export class AppService {
    */
   async uploadAvatar(userId: string, file: any) {
     try {
-      // Конвертируем файл в формат, который можно передать через RabbitMQ
-      // RabbitMQ не может напрямую передать Express.Multer.File, поэтому передаем буфер и метаданные
-      // Buffer нужно конвертировать в Uint8Array для сериализации через RabbitMQ
-      const fileData = {
-        fieldname: file.fieldname,
-        originalname: file.originalname,
-        encoding: file.encoding,
-        mimetype: file.mimetype,
-        size: file.size,
-        buffer: new Uint8Array(file.buffer),
-      };
+      const fileData = this.prepareFileForUpload(file);
 
       return await this.sendToMediaService<
         { success: true; file: any } | { success: false; error: string },
@@ -280,10 +316,7 @@ export class AppService {
         file: fileData,
       });
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      return this.handleError(error);
     }
   }
 
@@ -292,15 +325,7 @@ export class AppService {
    */
   async uploadTrack(userId: string, file: any) {
     try {
-      // Конвертируем файл в формат, который можно передать через RabbitMQ
-      const fileData = {
-        fieldname: file.fieldname,
-        originalname: file.originalname,
-        encoding: file.encoding,
-        mimetype: file.mimetype,
-        size: file.size,
-        buffer: new Uint8Array(file.buffer),
-      };
+      const fileData = this.prepareFileForUpload(file);
 
       return await this.sendToMediaService<
         { success: true; file: any } | { success: false; error: string },
@@ -311,10 +336,7 @@ export class AppService {
         file: fileData,
       });
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      return this.handleError(error);
     }
   }
 
@@ -329,27 +351,8 @@ export class AppService {
         { userId: string }
       >('getUserAvatar', { userId });
 
-      // Конвертируем Uint8Array обратно в Buffer после получения через RabbitMQ
       if (result.success && 'buffer' in result) {
-        let buffer: Buffer;
-        if (result.buffer instanceof Buffer) {
-          buffer = result.buffer;
-        } else if (result.buffer instanceof Uint8Array) {
-          buffer = Buffer.from(result.buffer);
-        } else {
-          // Plain object после JSON сериализации - конвертируем в массив, затем в Buffer
-          const bufferData = result.buffer as unknown;
-          let bufferArray: number[];
-          if (Array.isArray(bufferData)) {
-            bufferArray = bufferData.map((val) => Number(val));
-          } else if (bufferData && typeof bufferData === 'object') {
-            bufferArray = Object.values(bufferData).map((val) => Number(val));
-          } else {
-            throw new Error('Invalid buffer format after serialization');
-          }
-          buffer = Buffer.from(bufferArray);
-        }
-
+        const buffer = this.convertBufferToBuffer(result.buffer);
         return {
           ...result,
           buffer,
@@ -358,10 +361,7 @@ export class AppService {
 
       return result;
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      return this.handleError(error);
     }
   }
 
@@ -376,27 +376,8 @@ export class AppService {
         { fileId: string }
       >('getFileById', { fileId });
 
-      // Конвертируем Uint8Array обратно в Buffer после получения через RabbitMQ
       if (result.success && 'buffer' in result) {
-        let buffer: Buffer;
-        if (result.buffer instanceof Buffer) {
-          buffer = result.buffer;
-        } else if (result.buffer instanceof Uint8Array) {
-          buffer = Buffer.from(result.buffer);
-        } else {
-          // Plain object после JSON сериализации - конвертируем в массив, затем в Buffer
-          const bufferData = result.buffer as unknown;
-          let bufferArray: number[];
-          if (Array.isArray(bufferData)) {
-            bufferArray = bufferData.map((val) => Number(val));
-          } else if (bufferData && typeof bufferData === 'object') {
-            bufferArray = Object.values(bufferData).map((val) => Number(val));
-          } else {
-            throw new Error('Invalid buffer format after serialization');
-          }
-          buffer = Buffer.from(bufferArray);
-        }
-
+        const buffer = this.convertBufferToBuffer(result.buffer);
         return {
           ...result,
           buffer,
@@ -405,10 +386,7 @@ export class AppService {
 
       return result;
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      return this.handleError(error);
     }
   }
 
@@ -443,27 +421,8 @@ export class AppService {
         { trackId: string; range?: { start: number; end: number } }
       >('getTrackById', { trackId, range });
 
-      // Конвертируем Uint8Array обратно в Buffer после получения через RabbitMQ
       if (result.success && 'buffer' in result) {
-        let buffer: Buffer;
-        if (result.buffer instanceof Buffer) {
-          buffer = result.buffer;
-        } else if (result.buffer instanceof Uint8Array) {
-          buffer = Buffer.from(result.buffer);
-        } else {
-          // Plain object после JSON сериализации - конвертируем в массив, затем в Buffer
-          const bufferData = result.buffer as unknown;
-          let bufferArray: number[];
-          if (Array.isArray(bufferData)) {
-            bufferArray = bufferData.map((val) => Number(val));
-          } else if (bufferData && typeof bufferData === 'object') {
-            bufferArray = Object.values(bufferData).map((val) => Number(val));
-          } else {
-            throw new Error('Invalid buffer format after serialization');
-          }
-          buffer = Buffer.from(bufferArray);
-        }
-
+        const buffer = this.convertBufferToBuffer(result.buffer);
         return {
           success: true,
           file: result.file,
@@ -474,16 +433,12 @@ export class AppService {
         };
       }
 
-      // Если не успешно, возвращаем ошибку
       return {
         success: false,
         error: 'error' in result ? result.error : 'Unknown error',
       };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      return this.handleError(error);
     }
   }
 
@@ -514,10 +469,7 @@ export class AppService {
         { userId: string }
       >('getUserTracks', { userId });
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      return this.handleError(error);
     }
   }
 
@@ -531,10 +483,7 @@ export class AppService {
         { fileId: string }
       >('deleteFile', { fileId });
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      return this.handleError(error);
     }
   }
 }
