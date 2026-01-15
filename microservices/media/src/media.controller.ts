@@ -80,4 +80,19 @@ export class MediaController {
   async getUserTracks(@Payload() payload: { userId: string }) {
     return await this.mediaService.getUserTracks(payload.userId);
   }
+
+  @MessagePattern({ cmd: "getTrackCover" })
+  async getTrackCover(@Payload() payload: { trackId: string }) {
+    const result = await this.mediaService.getTrackCover(payload.trackId);
+
+    // Конвертируем Buffer в Uint8Array для сериализации через RabbitMQ
+    if (result.success && "buffer" in result) {
+      return {
+        ...result,
+        buffer: new Uint8Array(result.buffer),
+      };
+    }
+
+    return result;
+  }
 }

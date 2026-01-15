@@ -79,9 +79,11 @@ export class StorageService {
         buffer = Buffer.from(bufferArray);
       }
 
-      // Для аватарок обрабатываем изображение (оптимизация, ресайз)
+      // Для аватарок и обложек обрабатываем изображение (оптимизация, ресайз)
       if (type === "avatar" && file.mimetype.startsWith("image/")) {
         await this.processAvatarImage(buffer, filePath);
+      } else if (type === "cover" && file.mimetype.startsWith("image/")) {
+        await this.processCoverImage(buffer, filePath);
       } else {
         // Для других типов сохраняем как есть
         await fs.writeFile(filePath, buffer);
@@ -112,6 +114,27 @@ export class StorageService {
         .toFile(outputPath);
     } catch (error) {
       this.logger.error(`Failed to process avatar image: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Обработка изображения обложки трека (ресайз, оптимизация)
+   */
+  private async processCoverImage(
+    buffer: Buffer,
+    outputPath: string,
+  ): Promise<void> {
+    try {
+      await sharp(buffer)
+        .resize(1200, 1200, {
+          fit: "cover",
+          position: "center",
+        })
+        .jpeg({ quality: 90 })
+        .toFile(outputPath);
+    } catch (error) {
+      this.logger.error(`Failed to process cover image: ${error}`);
       throw error;
     }
   }

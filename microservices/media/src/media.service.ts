@@ -24,6 +24,7 @@ export class MediaService {
   // Ограничения для файлов
   private readonly MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5 MB
   private readonly MAX_TRACK_SIZE = 100 * 1024 * 1024; // 100 MB
+  private readonly MAX_COVER_SIZE = 10 * 1024 * 1024; // 10 MB
   private readonly ALLOWED_IMAGE_TYPES = [
     "image/jpeg",
     "image/png",
@@ -105,6 +106,14 @@ export class MediaService {
       // Получаем метаданные для изображений и аудио
       let metadata: IMediaFile["metadata"] = {};
       if (type === "avatar" && file.mimetype.startsWith("image/")) {
+        const imageMetadata =
+          await this.storageService.getImageMetadata(fileBuffer);
+        metadata = {
+          width: imageMetadata.width,
+          height: imageMetadata.height,
+          format: imageMetadata.format,
+        };
+      } else if (type === "cover" && file.mimetype.startsWith("image/")) {
         const imageMetadata =
           await this.storageService.getImageMetadata(fileBuffer);
         metadata = {
@@ -400,6 +409,68 @@ export class MediaService {
   }
 
   /**
+   * Получение обложки трека по ID трека
+   */
+  async getTrackCover(
+    trackId: string,
+  ): Promise<
+    | { success: true; file: MediaFileDocument; buffer: Buffer }
+    | { success: false; error: string }
+  > {
+    try {
+      // Проверяем кэш
+      const cacheKey = `cover:${trackId}`;
+      const cachedFile =
+        await this.cacheManager.get<MediaFileDocument>(cacheKey);
+
+      let file: MediaFileDocument | null;
+      if (cachedFile) {
+        file = cachedFile;
+        this.logger.log(`[CACHE HIT] Cover found in cache: ${trackId}`);
+      } else {
+        // Ищем обложку для трека (связь через trackId в metadata или через userId и type)
+        // Сначала получаем трек, чтобы узнать userId
+        const track = await this.mediaFileModel.findOne({
+          fileId: trackId,
+          type: "track",
+        });
+
+        if (!track) {
+          return { success: false, error: "Track not found" };
+        }
+
+        // Ищем обложку для этого трека (можно искать по userId и type cover)
+        // В будущем можно добавить поле trackId в схему MediaFile для прямой связи
+        // Пока ищем последнюю загруженную обложку пользователя
+        file = await this.mediaFileModel
+          .findOne({ userId: track.userId, type: "cover" })
+          .sort({ createdAt: -1 })
+          .exec();
+
+        if (file) {
+          await this.cacheManager.set(cacheKey, file, this.CACHE_TTL);
+          this.logger.log(`[CACHE SET] Cover cached: ${trackId}`);
+        }
+      }
+
+      if (!file) {
+        return { success: false, error: "Cover not found" };
+      }
+
+      // Читаем файл с диска
+      const buffer = await this.storageService.readFile(file.path);
+
+      return { success: true, file, buffer };
+    } catch (error) {
+      this.logger.error(`Get track cover error: ${error}`);
+      return {
+        success: false,
+        error: getErrorMessage(error, "Failed to get track cover"),
+      };
+    }
+  }
+
+  /**
    * Удаление файла
    */
   async deleteFile(
@@ -446,6 +517,9 @@ export class MediaService {
     // Валидация размера
     if (type === "avatar" && file.size > this.MAX_AVATAR_SIZE) {
       return `File size exceeds maximum allowed size of ${this.MAX_AVATAR_SIZE / 1024 / 1024}MB`;
+    }
+    if (type === "cover" && file.size > this.MAX_COVER_SIZE) {
+      return `File size exceeds maximum allowed size of ${this.MAX_COVER_SIZE / 1024 / 1024}MB`;
     }
     if (type === "track" && file.size > this.MAX_TRACK_SIZE) {
       return `File size exceeds maximum allowed size of ${this.MAX_TRACK_SIZE / 1024 / 1024}MB`;
@@ -530,6 +604,12 @@ export class MediaService {
         const avatarKey = `avatar:${file.userId}`;
         await this.cacheManager.set(avatarKey, file, this.CACHE_TTL);
       }
+
+      // Кэшируем обложку отдельно (можно связать с треком через trackId в будущем)
+      if (file.type === "cover") {
+        const coverKey = `cover:${file.fileId}`;
+        await this.cacheManager.set(coverKey, file, this.CACHE_TTL);
+      }
     } catch (error) {
       this.logger.error(`Cache file error: ${error}`);
     }
@@ -550,6 +630,8 @@ export class MediaService {
       } else if (type === "track") {
         keysToDelete.push(`track:${fileId}`);
         keysToDelete.push(`tracks:${userId}`);
+      } else if (type === "cover") {
+        keysToDelete.push(`cover:${fileId}`);
       }
 
       await Promise.all(keysToDelete.map((key) => this.cacheManager.del(key)));

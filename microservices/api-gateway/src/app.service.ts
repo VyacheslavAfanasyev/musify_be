@@ -341,6 +341,26 @@ export class AppService {
   }
 
   /**
+   * Загрузка обложки трека
+   */
+  async uploadCover(userId: string, file: any) {
+    try {
+      const fileData = this.prepareFileForUpload(file);
+
+      return await this.sendToMediaService<
+        { success: true; file: any } | { success: false; error: string },
+        { userId: string; type: 'cover'; file: any }
+      >('uploadFile', {
+        userId,
+        type: 'cover',
+        file: fileData,
+      });
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * Получение аватарки пользователя
    */
   async getUserAvatar(userId: string) {
@@ -468,6 +488,31 @@ export class AppService {
         { success: true; tracks: any[] } | { success: false; error: string },
         { userId: string }
       >('getUserTracks', { userId });
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Получение обложки трека по ID трека
+   */
+  async getTrackCover(trackId: string) {
+    try {
+      const result = await this.sendToMediaService<
+        | { success: true; file: any; buffer: Uint8Array | Buffer }
+        | { success: false; error: string },
+        { trackId: string }
+      >('getTrackCover', { trackId });
+
+      if (result.success && 'buffer' in result) {
+        const buffer = this.convertBufferToBuffer(result.buffer);
+        return {
+          ...result,
+          buffer,
+        };
+      }
+
+      return result;
     } catch (error) {
       return this.handleError(error);
     }

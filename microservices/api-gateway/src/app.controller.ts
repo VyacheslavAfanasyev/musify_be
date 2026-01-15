@@ -153,6 +153,31 @@ export class AppController {
     return await this.appService.uploadTrack(userId, file);
   }
 
+  @Post('media/upload/cover')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 запросов в минуту
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadCover(
+    @UploadedFile() file: UploadedFileType | undefined,
+    @Body() body: { userId?: string; type?: string },
+  ): Promise<{ success: boolean; file?: any; error?: string }> {
+    const userId = body?.userId;
+    if (!file) {
+      return {
+        success: false,
+        error: 'File is required',
+      };
+    }
+
+    if (!userId) {
+      return {
+        success: false,
+        error: 'userId is required',
+      };
+    }
+
+    return await this.appService.uploadCover(userId, file);
+  }
+
   @Get('media/avatar/:userId')
   async getUserAvatar(@Param('userId') userId: string, @Res() res: Response) {
     const result = await this.appService.getUserAvatar(userId);
@@ -241,6 +266,28 @@ export class AppController {
       res.setHeader('Cache-Control', 'public, max-age=3600');
       res.send(buffer);
     }
+  }
+
+  @Get('media/cover/:trackId')
+  async getTrackCover(
+    @Param('trackId') trackId: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const result = await this.appService.getTrackCover(trackId);
+
+    if (!result.success || !('buffer' in result)) {
+      const errorMessage = 'error' in result ? result.error : 'Cover not found';
+      res.status(HttpStatus.NOT_FOUND).json({
+        success: false,
+        error: errorMessage,
+      });
+      return;
+    }
+
+    res.setHeader('Content-Type', result.file.mimeType);
+    res.setHeader('Content-Length', String(result.file.size));
+    res.setHeader('Cache-Control', 'public, max-age=3600'); // Кэш на 1 час
+    res.send(result.buffer);
   }
 
   @Delete('media/file/:fileId')
