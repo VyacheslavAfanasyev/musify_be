@@ -191,7 +191,7 @@ export class AppController {
       });
     }
 
-    res.setHeader('Content-Type', result.file.mimeType);
+    res.setHeader('Content-Type', String(result.file.mimeType));
     res.setHeader('Content-Length', String(result.file.size));
     res.setHeader('Cache-Control', 'public, max-age=3600'); // Кэш на 1 час
     return res.send(result.buffer);
@@ -209,7 +209,7 @@ export class AppController {
       });
     }
 
-    res.setHeader('Content-Type', result.file.mimeType);
+    res.setHeader('Content-Type', String(result.file.mimeType));
     res.setHeader('Content-Length', String(result.file.size));
     res.setHeader('Cache-Control', 'public, max-age=3600');
     return res.send(result.buffer);
@@ -249,7 +249,7 @@ export class AppController {
 
     const { file, buffer, start, end, totalSize } = result;
 
-    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Content-Type', String(file.mimeType));
     res.setHeader('Accept-Ranges', 'bytes');
 
     // Если запрошен range, отправляем частичный контент
@@ -284,7 +284,7 @@ export class AppController {
       return;
     }
 
-    res.setHeader('Content-Type', result.file.mimeType);
+    res.setHeader('Content-Type', String(result.file.mimeType));
     res.setHeader('Content-Length', String(result.file.size));
     res.setHeader('Cache-Control', 'public, max-age=3600'); // Кэш на 1 час
     res.send(result.buffer);
@@ -293,5 +293,50 @@ export class AppController {
   @Delete('media/file/:fileId')
   async deleteFile(@Param('fileId') fileId: string) {
     return await this.appService.deleteFile(fileId);
+  }
+
+  @Post('social/follow/:userId')
+  async followUser(
+    @Param('userId') userId: string,
+    @Body() body: { followerId?: string },
+  ) {
+    const followerId = body?.followerId;
+    if (!followerId) {
+      return {
+        success: false,
+        error: 'followerId is required',
+      };
+    }
+    return await this.appService.followUser(followerId, userId);
+  }
+
+  @Post('social/unfollow/:userId')
+  async unfollowUserPost(
+    @Param('userId') userId: string,
+    @Body() body: { followerId?: string },
+  ) {
+    const followerId = body?.followerId;
+    if (!followerId) {
+      return {
+        success: false,
+        error: 'followerId is required',
+      };
+    }
+    return await this.appService.unfollowUser(followerId, userId);
+  }
+
+  @Delete('social/unfollow/:userId')
+  async unfollowUser(
+    @Param('userId') userId: string,
+    @Body() body: { followerId?: string },
+  ) {
+    const followerId = body?.followerId;
+    if (!followerId) {
+      return {
+        success: false,
+        error: 'followerId is required',
+      };
+    }
+    return await this.appService.unfollowUser(followerId, userId);
   }
 }

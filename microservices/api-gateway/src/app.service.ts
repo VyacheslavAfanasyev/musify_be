@@ -26,6 +26,7 @@ export class AppService {
     @Inject('AUTH_SERVICE') private readonly authClient: ClientProxy,
     @Inject('USER_SERVICE') private readonly userClient: ClientProxy,
     @Inject('MEDIA_SERVICE') private readonly mediaClient: ClientProxy,
+    @Inject('SOCIAL_SERVICE') private readonly socialClient: ClientProxy,
   ) {}
 
   getHello(): string {
@@ -88,6 +89,29 @@ export class AppService {
         catchError((error) => {
           if (error.name === 'TimeoutError') {
             return throwError(() => new Error(`Media Service timeout: ${cmd}`));
+          }
+          return throwError(() => error);
+        }),
+      ),
+    );
+  }
+
+  private async sendToSocialService<TResponse, TInput = unknown>(
+    cmd: string,
+    payload: TInput,
+  ): Promise<TResponse> {
+    const observable = this.socialClient.send<TResponse, TInput>(
+      { cmd },
+      payload,
+    ) as unknown as Observable<TResponse>;
+    return await firstValueFrom(
+      observable.pipe(
+        timeout(10000), // 10 секунд таймаут
+        catchError((error) => {
+          if (error.name === 'TimeoutError') {
+            return throwError(
+              () => new Error(`Social Service timeout: ${cmd}`),
+            );
           }
           return throwError(() => error);
         }),
@@ -527,6 +551,34 @@ export class AppService {
         { success: boolean; error?: string },
         { fileId: string }
       >('deleteFile', { fileId });
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Подписка на пользователя
+   */
+  async followUser(followerId: string, followingId: string) {
+    try {
+      return await this.sendToSocialService<
+        IBaseResponse,
+        { followerId: string; followingId: string }
+      >('followUser', { followerId, followingId });
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Отписка от пользователя
+   */
+  async unfollowUser(followerId: string, followingId: string) {
+    try {
+      return await this.sendToSocialService<
+        IBaseResponse,
+        { followerId: string; followingId: string }
+      >('unfollowUser', { followerId, followingId });
     } catch (error) {
       return this.handleError(error);
     }

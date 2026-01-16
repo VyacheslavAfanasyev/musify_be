@@ -66,6 +66,9 @@ export class UserProfile {
     totalPlays: number;
   };
 
+  @Prop({ type: [String], default: [] })
+  following: string[]; // Массив userId пользователей, на которых подписан
+
   @Prop({
     type: {
       emailNotifications: { type: Boolean, default: true },

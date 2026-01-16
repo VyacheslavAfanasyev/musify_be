@@ -26,6 +26,7 @@ export interface IUserProfile {
     privateProfile: boolean;
   };
   role: "musician" | "listener" | "admin";
+  following: string[]; // Массив userId пользователей, на которых подписан
   createdAt?: Date;
   updatedAt?: Date;
 }

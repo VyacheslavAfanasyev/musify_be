@@ -74,6 +74,50 @@ export class UserController {
     );
   }
 
+  @MessagePattern({ cmd: "updateFollowersCount" })
+  async updateFollowersCount(
+    @Payload()
+    payload: {
+      userId: string;
+      delta: number;
+    },
+  ) {
+    return await this.usersService.updateFollowersCount(
+      payload.userId,
+      payload.delta,
+    );
+  }
+
+  @MessagePattern({ cmd: "updateFollowingCount" })
+  async updateFollowingCount(
+    @Payload()
+    payload: {
+      userId: string;
+      delta: number;
+    },
+  ) {
+    return await this.usersService.updateFollowingCount(
+      payload.userId,
+      payload.delta,
+    );
+  }
+
+  @MessagePattern({ cmd: "updateFollowingList" })
+  async updateFollowingList(
+    @Payload()
+    payload: {
+      userId: string;
+      followingId: string;
+      action: "add" | "remove";
+    },
+  ) {
+    return await this.usersService.updateFollowingList(
+      payload.userId,
+      payload.followingId,
+      payload.action,
+    );
+  }
+
   @MessagePattern({ cmd: "deleteProfile" })
   deleteProfile(@Payload() payload: { userId: string }) {
     return this.usersService.deleteProfile(payload.userId);

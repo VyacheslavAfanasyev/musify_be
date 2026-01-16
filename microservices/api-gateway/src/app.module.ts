@@ -72,6 +72,25 @@ import { ThrottlerBehindProxyGuard } from './throttler-behind-proxy.guard';
           };
         },
       },
+      {
+        name: 'SOCIAL_SERVICE',
+        useFactory: () => {
+          const rabbitmqUrl =
+            process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
+          const queue = process.env.SOCIAL_QUEUE || 'social_queue';
+
+          return {
+            transport: Transport.RMQ,
+            options: {
+              urls: [rabbitmqUrl],
+              queue,
+              queueOptions: {
+                durable: true,
+              },
+            },
+          };
+        },
+      },
     ]),
   ],
   controllers: [AppController],
