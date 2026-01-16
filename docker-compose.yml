@@ -157,6 +157,42 @@ services:
       - UPLOAD_DIR=/app/uploads
     restart: unless-stopped
 
+  social:
+    build:
+      context: .
+      dockerfile: ./microservices/social/Dockerfile
+      target: development
+    ports:
+      - "3004:3004"
+    volumes:
+      # Монтируем исходный код для HMR
+      - ./microservices/social/src:/app/src
+      - ./microservices/social/package.json:/app/package.json
+      - ./microservices/social/tsconfig.json:/app/tsconfig.json
+      - ./microservices/social/tsconfig.build.json:/app/tsconfig.build.json
+      - ./microservices/social/nest-cli.json:/app/nest-cli.json
+      - ./microservices/social/nodemon.json:/app/nodemon.json
+      - ./shared:/app/shared
+      # Исключаем node_modules из монтирования (используем из образа)
+      - /app/node_modules
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      user:
+        condition: service_started
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URL=mongodb://root:secret@mongodb:27017/music_app?authSource=admin
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - SOCIAL_QUEUE=social_queue
+      - USER_QUEUE=user_queue
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -182,12 +218,15 @@ services:
         condition: service_started
       media:
         condition: service_started
+      social:
+        condition: service_started
     environment:
       - NODE_ENV=development
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - AUTH_QUEUE=auth_queue
       - USER_QUEUE=user_queue
       - MEDIA_QUEUE=media_queue
+      - SOCIAL_QUEUE=social_queue
     restart: unless-stopped
 
 volumes:
