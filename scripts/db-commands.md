@@ -208,6 +208,72 @@ db.userprofiles.updateOne(
 exit
 ```
 
+---
+
+## Команды для работы с MediaFiles
+
+### Просмотр всех медиафайлов
+```javascript
+db.mediafiles.find().pretty()
+```
+
+### Просмотр медиафайлов с ограничением
+```javascript
+db.mediafiles.find().limit(10).pretty()
+```
+
+### Подсчет медиафайлов
+```javascript
+db.mediafiles.countDocuments()
+```
+
+### Поиск медиафайла по fileId
+```javascript
+db.mediafiles.findOne({ fileId: "uuid-здесь" })
+```
+
+### Поиск медиафайлов по userId
+```javascript
+db.mediafiles.find({ userId: "uuid-здесь" }).pretty()
+```
+
+### Поиск медиафайлов по типу
+```javascript
+db.mediafiles.find({ type: "avatar" }).pretty()
+db.mediafiles.find({ type: "track" }).pretty()
+db.mediafiles.find({ type: "cover" }).pretty()
+```
+
+### Поиск медиафайла по fileName
+```javascript
+db.mediafiles.findOne({ fileName: "имя-файла" })
+```
+
+### Удаление медиафайла по fileId
+```javascript
+db.mediafiles.deleteOne({ fileId: "uuid-здесь" })
+```
+
+### Удаление всех медиафайлов пользователя
+```javascript
+db.mediafiles.deleteMany({ userId: "uuid-здесь" })
+```
+
+### Удаление всех медиафайлов (осторожно!)
+```javascript
+db.mediafiles.deleteMany({})
+```
+
+### Просмотр медиафайлов с сортировкой по дате создания
+```javascript
+db.mediafiles.find().sort({ createdAt: -1 }).limit(10).pretty()
+```
+
+### Просмотр только определенных полей
+```javascript
+db.mediafiles.find({}, { fileId: 1, userId: 1, type: 1, originalName: 1, size: 1, createdAt: 1 }).pretty()
+```
+
 ## Прямые команды через docker-compose
 
 ### Просмотр всех профилей
@@ -223,6 +289,31 @@ docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase a
 ### Подсчет записей
 ```bash
 docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.userprofiles.countDocuments()"
+```
+
+### Просмотр всех медиафайлов
+```bash
+docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.mediafiles.find().pretty()"
+```
+
+### Просмотр медиафайлов с ограничением
+```bash
+docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.mediafiles.find().limit(10).pretty()"
+```
+
+### Подсчет медиафайлов
+```bash
+docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.mediafiles.countDocuments()"
+```
+
+### Поиск медиафайлов по типу
+```bash
+docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.mediafiles.find({ type: 'avatar' }).pretty()"
+```
+
+### Удаление всех медиафайлов (осторожно!)
+```bash
+docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.mediafiles.deleteMany({})"
 ```
 
 ## Готовые скрипты
@@ -269,6 +360,39 @@ scripts\db-count-mongo-profiles.bat
 **Windows:**
 ```cmd
 scripts\db-connect-mongo.bat
+```
+
+### Просмотр всех медиафайлов
+**Linux/Mac:**
+```bash
+./scripts/db-view-mediafiles.sh
+```
+
+**Windows:**
+```cmd
+scripts\db-view-mediafiles.bat
+```
+
+### Подсчет медиафайлов
+**Linux/Mac:**
+```bash
+./scripts/db-count-mediafiles.sh
+```
+
+**Windows:**
+```cmd
+scripts\db-count-mediafiles.bat
+```
+
+### Удаление всех медиафайлов (осторожно!)
+**Linux/Mac:**
+```bash
+./scripts/db-delete-mediafiles.sh
+```
+
+**Windows:**
+```cmd
+scripts\db-delete-mediafiles.bat
 ```
 
 ## Подключение через внешний клиент

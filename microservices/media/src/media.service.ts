@@ -487,6 +487,11 @@ export class MediaService {
         return { success: false, error: "File not found" };
       }
 
+      // Сохраняем данные файла перед удалением
+      const fileType = file.type;
+      const userId = file.userId;
+      const fileUrl = file.url;
+
       // Удаляем файл с диска
       await this.storageService.deleteFile(file.path);
 
@@ -494,11 +499,56 @@ export class MediaService {
       await this.mediaFileModel.deleteOne({ fileId });
 
       // Инвалидируем кэш
-      await this.invalidateFileCache(fileId, file.userId, file.type);
+      await this.invalidateFileCache(fileId, userId, fileType);
 
       // Если это трек, обновляем счетчик треков
-      if (file.type === "track") {
-        await this.updateTracksCount(file.userId, -1);
+      if (fileType === "track") {
+        await this.updateTracksCount(userId, -1);
+      }
+
+      // Если это аватарка, проверяем, остались ли еще аватарки у пользователя
+      if (fileType === "avatar") {
+        const remainingAvatars = await this.mediaFileModel.countDocuments({
+          userId,
+          type: "avatar",
+        });
+
+        // Если это была последняя аватарка, очищаем avatarUrl в профиле
+        if (remainingAvatars === 0) {
+          await this.updateUserAvatar(userId, undefined);
+        } else {
+          // Если остались другие аватарки, проверяем, была ли удаленная аватарка текущей
+          // Для этого проверяем, совпадает ли URL удаленного файла с avatarUrl в профиле
+          try {
+            const profileResult = await firstValueFrom(
+              this.userClient.send({ cmd: "getProfileByUserId" }, { userId }),
+            );
+
+            if (
+              profileResult.success &&
+              profileResult.profile &&
+              profileResult.profile.avatarUrl === fileUrl
+            ) {
+              // Если удаленная аватарка была текущей, обновляем на последнюю загруженную
+              const latestAvatar = await this.mediaFileModel
+                .findOne({ userId, type: "avatar" })
+                .sort({ createdAt: -1 })
+                .exec();
+
+              if (latestAvatar) {
+                await this.updateUserAvatar(userId, latestAvatar.url);
+              } else {
+                // Если почему-то не нашли аватарку, очищаем
+                await this.updateUserAvatar(userId, undefined);
+              }
+            }
+          } catch (error) {
+            this.logger.error(
+              `Failed to check/update user avatar after deletion: ${error}`,
+            );
+            // Не прерываем выполнение, если не удалось обновить профиль
+          }
+        }
       }
 
       return { success: true };
@@ -552,19 +602,30 @@ export class MediaService {
    */
   private async updateUserAvatar(
     userId: string,
-    avatarUrl: string,
+    avatarUrl: string | undefined,
   ): Promise<void> {
     try {
+      // Если avatarUrl пустая строка или undefined, передаем null для очистки поля
+      const updateDto: { avatarUrl?: string | null } = {};
+      if (avatarUrl && avatarUrl.trim() !== "") {
+        updateDto.avatarUrl = avatarUrl;
+      } else {
+        // Для очистки поля передаем null
+        updateDto.avatarUrl = null;
+      }
+
       await firstValueFrom(
         this.userClient.send(
           { cmd: "updateProfile" },
           {
             userId,
-            updateDto: { avatarUrl },
+            updateDto,
           },
         ),
       );
-      this.logger.log(`User avatar updated: ${userId}`);
+      this.logger.log(
+        `User avatar updated: ${userId}, avatarUrl: ${avatarUrl || "cleared"}`,
+      );
     } catch (error) {
       this.logger.error(`Failed to update user avatar: ${error}`);
       // Не прерываем выполнение, если не удалось обновить профиль
