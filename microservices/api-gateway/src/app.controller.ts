@@ -339,4 +339,22 @@ export class AppController {
     }
     return await this.appService.unfollowUser(followerId, userId);
   }
+
+  @Get('social/followers/:userId')
+  async getFollowers(@Param('userId') userId: string) {
+    return await this.appService.getFollowers(userId);
+  }
+
+  @Get('social/following/:userId')
+  async getFollowing(@Param('userId') userId: string) {
+    return await this.appService.getFollowing(userId);
+  }
+
+  @Get('social/isFollowing/:followerId/:followingId')
+  async isFollowing(
+    @Param('followerId') followerId: string,
+    @Param('followingId') followingId: string,
+  ) {
+    return await this.appService.isFollowing(followerId, followingId);
+  }
 }

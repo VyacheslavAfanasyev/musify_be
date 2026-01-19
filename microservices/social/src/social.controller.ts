@@ -27,4 +27,24 @@ export class SocialController {
       payload.followingId,
     );
   }
+
+  @MessagePattern({ cmd: "getFollowers" })
+  async getFollowers(@Payload() payload: { userId: string }) {
+    return await this.socialService.getFollowers(payload.userId);
+  }
+
+  @MessagePattern({ cmd: "getFollowing" })
+  async getFollowing(@Payload() payload: { userId: string }) {
+    return await this.socialService.getFollowing(payload.userId);
+  }
+
+  @MessagePattern({ cmd: "checkFollowStatus" })
+  async checkFollowStatus(
+    @Payload() payload: { followerId: string; followingId: string },
+  ) {
+    return await this.socialService.isFollowing(
+      payload.followerId,
+      payload.followingId,
+    );
+  }
 }

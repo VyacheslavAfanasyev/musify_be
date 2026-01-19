@@ -166,4 +166,87 @@ export class SocialService {
       };
     }
   }
+
+  /**
+   * Получить список подписчиков пользователя
+   */
+  async getFollowers(
+    userId: string,
+  ): Promise<
+    { success: true; followers: string[] } | { success: false; error: string }
+  > {
+    try {
+      const follows = await this.followModel
+        .find({ followingId: userId })
+        .select("followerId")
+        .lean();
+
+      const followers = follows.map((follow) => follow.followerId);
+
+      return {
+        success: true,
+        followers,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: getErrorMessage(error, "Failed to get followers"),
+      };
+    }
+  }
+
+  /**
+   * Получить список подписок пользователя
+   */
+  async getFollowing(
+    userId: string,
+  ): Promise<
+    { success: true; following: string[] } | { success: false; error: string }
+  > {
+    try {
+      const follows = await this.followModel
+        .find({ followerId: userId })
+        .select("followingId")
+        .lean();
+
+      const following = follows.map((follow) => follow.followingId);
+
+      return {
+        success: true,
+        following,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: getErrorMessage(error, "Failed to get following"),
+      };
+    }
+  }
+
+  /**
+   * Проверить, подписан ли пользователь на другого пользователя
+   */
+  async isFollowing(
+    followerId: string,
+    followingId: string,
+  ): Promise<
+    { success: true; isFollowing: boolean } | { success: false; error: string }
+  > {
+    try {
+      const follow = await this.followModel.findOne({
+        followerId,
+        followingId,
+      });
+
+      return {
+        success: true,
+        isFollowing: !!follow,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: getErrorMessage(error, "Failed to check follow status"),
+      };
+    }
+  }
 }

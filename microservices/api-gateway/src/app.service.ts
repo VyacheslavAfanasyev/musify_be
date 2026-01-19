@@ -583,4 +583,49 @@ export class AppService {
       return this.handleError(error);
     }
   }
+
+  /**
+   * Получить список подписчиков пользователя
+   */
+  async getFollowers(userId: string) {
+    try {
+      return await this.sendToSocialService<
+        | { success: true; followers: string[] }
+        | { success: false; error: string },
+        { userId: string }
+      >('getFollowers', { userId });
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Получить список подписок пользователя
+   */
+  async getFollowing(userId: string) {
+    try {
+      return await this.sendToSocialService<
+        | { success: true; following: string[] }
+        | { success: false; error: string },
+        { userId: string }
+      >('getFollowing', { userId });
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Проверить, подписан ли пользователь на другого пользователя
+   */
+  async isFollowing(followerId: string, followingId: string) {
+    try {
+      return await this.sendToSocialService<
+        | { success: true; isFollowing: boolean }
+        | { success: false; error: string },
+        { followerId: string; followingId: string }
+      >('checkFollowStatus', { followerId, followingId });
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
 }

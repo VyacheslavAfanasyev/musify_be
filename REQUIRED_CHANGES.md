@@ -120,7 +120,7 @@ microservices/social/
 ├── package.json
 └── tsconfig.json
 ```
-
+    
 **Функциональность:**
 
 1. **Управление подписками:**
