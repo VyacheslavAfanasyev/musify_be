@@ -10,7 +10,7 @@ import { UserProfile, UserProfileSchema } from "@app/shared";
     // Подключение к MongoDB с таймаутами
     MongooseModule.forRoot(
       process.env.MONGODB_URL ||
-        "mongodb://root:secret@localhost:27017/music_app?authSource=admin",
+        "mongodb://root:secret@localhost:27017/user_db?authSource=admin",
       {
         serverSelectionTimeoutMS: 30000, // 30 секунд на подключение
         socketTimeoutMS: 30000, // 30 секунд на операции

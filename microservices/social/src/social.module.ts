@@ -11,7 +11,7 @@ import { Follow, FollowSchema } from "@app/shared";
     // Подключение к MongoDB
     MongooseModule.forRoot(
       process.env.MONGODB_URL ||
-        "mongodb://root:secret@localhost:27017/music_app?authSource=admin",
+        "mongodb://root:secret@localhost:27017/social_db?authSource=admin",
       {
         serverSelectionTimeoutMS: 30000,
         socketTimeoutMS: 30000,

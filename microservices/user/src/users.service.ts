@@ -106,7 +106,7 @@ export class UsersService {
       };
     } catch (error) {
       console.error("createProfile error:", error);
-      // Обработка специфичных ошибок MongoDB
+      // Обработка специфичных ошибок MongoDB (user_db)
       if (error?.code === 11000) {
         // Duplicate key error
         const keyPattern =
@@ -169,10 +169,10 @@ export class UsersService {
       }
 
       console.log(
-        `[CACHE MISS] Profile not in cache, fetching from MongoDB for userId: ${userId}`,
+        `[CACHE MISS] Profile not in cache, fetching from MongoDB (user_db) for userId: ${userId}`,
       );
 
-      // Если нет в кэше, запрашиваем из MongoDB
+      // Если нет в кэше, запрашиваем из MongoDB (user_db)
       const profile = await this.userProfileModel
         .findOne({ userId })
         .maxTimeMS(5000)
@@ -240,10 +240,10 @@ export class UsersService {
       }
 
       console.log(
-        `[CACHE MISS] Profile not in cache, fetching from MongoDB for username: ${username}`,
+        `[CACHE MISS] Profile not in cache, fetching from MongoDB (user_db) for username: ${username}`,
       );
 
-      // Если нет в кэше, запрашиваем из MongoDB
+      // Если нет в кэше, запрашиваем из MongoDB (user_db)
       const profile = await this.userProfileModel.findOne({ username });
 
       if (profile) {

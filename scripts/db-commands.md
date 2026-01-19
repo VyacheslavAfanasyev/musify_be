@@ -1,437 +1,111 @@
-docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.dropDatabase()"
-docker-compose exec postgres psql -U musician -d music_app -c "delete from auth_users;"
-docker-compose exec postgres psql -U musician -d music_app -c "SELECT * FROM auth_users"
+# Команды для работы с базами данных
 
-# Команды для работы с PostgreSQL в Docker контейнере
+## PostgreSQL (Auth Service)
 
-## Подключение к базе данных
-
-### Способ 1: Интерактивный режим через psql
+### Подключение
 ```bash
-docker-compose exec postgres psql -U musician -d music_app
+docker-compose exec postgres_auth psql -U auth_user -d auth_db
 ```
 
-### Способ 2: Выполнение одной команды
+### Просмотр пользователей
 ```bash
-docker-compose exec postgres psql -U musician -d music_app -c "SELECT * FROM auth_users;"
+docker-compose exec postgres_auth psql -U auth_user -d auth_db -c "SELECT * FROM auth_users"
 ```
 
-## Полезные SQL команды
-
-### Просмотр всех таблиц
-```sql
-\dt
-```
-
-### Просмотр структуры таблицы auth_users
-```sql
-\d users
-```
-
-### Просмотр всех пользователей
-```sql
-SELECT * FROM auth_users;
-```
-
-### Просмотр пользователей с ограничением
-```sql
-SELECT id, email, username, role, "createdAt" FROM auth_users LIMIT 10;
+### Удаление всех пользователей
+```bash
+docker-compose exec postgres_auth psql -U auth_user -d auth_db -c "DELETE FROM auth_users;"
 ```
 
 ### Подсчет пользователей
-```sql
-SELECT COUNT(*) FROM auth_users;
-```
-
-### Удаление пользователя по email
-```sql
-DELETE FROM auth_users WHERE email = 'kek3@mail.com';
-```
-
-### Удаление пользователя по id
-```sql
-DELETE FROM auth_users WHERE id = 'uuid-здесь';
-```
-
-### Удаление всех пользователей (осторожно!)
-```sql
-DELETE FROM auth_users;
-```
-
-### Поиск пользователя по email
-```sql
-SELECT * FROM auth_users WHERE email = 'kek2@mail.com';
-```
-
-### Обновление роли пользователя
-```sql
-UPDATE auth_users SET role = 'admin' WHERE email = 'kek2@mail.com';
-```
-
-### Выход из psql
-```sql
-\q
-```
-
-## Прямые команды через docker-compose
-
-### Просмотр всех пользователей
 ```bash
-docker-compose exec postgres psql -U musician -d music_app -c "SELECT id, email, username, role, \"createdAt\" FROM auth_users;"
+docker-compose exec postgres_auth psql -U auth_user -d auth_db -c "SELECT COUNT(*) FROM auth_users;"
 ```
 
-### Удаление пользователя
-```bash
-docker-compose exec postgres psql -U musician -d music_app -c "DELETE FROM auth_users WHERE email = 'kek2@mail.com';"
-```
-
-### Подсчет записей
-```bash
-docker-compose exec postgres psql -U musician -d music_app -c "SELECT COUNT(*) FROM auth_users;"
-```
-
-## Подключение через внешний клиент
-
-### Параметры подключения:
-- **Host:** localhost
-- **Port:** 5432
-- **Database:** music_app
-- **Username:** musician
-- **Password:** secret
-
-### Популярные клиенты:
-- **pgAdmin** (веб-интерфейс): https://www.pgadmin.org/
-- **DBeaver** (десктоп): https://dbeaver.io/
-- **TablePlus** (десктоп): https://tableplus.com/
-- **DataGrip** (JetBrains): https://www.jetbrains.com/datagrip/
-
-## Полезные команды Docker
-
-### Просмотр логов PostgreSQL
-```bash
-docker-compose logs postgres
-```
-
-### Остановка базы данных
-```bash
-docker-compose stop postgres
-```
-
-### Удаление базы данных (осторожно! удалит все данные)
-```bash
-docker-compose down -v
-```
-
-### Резервное копирование базы данных
-```bash
-docker-compose exec postgres pg_dump -U musician music_app > backup.sql
-```
-
-### Восстановление из резервной копии
-```bash
-docker-compose exec -T postgres psql -U musician -d music_app < backup.sql
-```
+**Параметры подключения:**
+- Host: localhost
+- Port: 5432
+- Database: auth_db
+- Username: auth_user
+- Password: secret
 
 ---
 
-# Команды для работы с MongoDB в Docker контейнере
+## MongoDB (User Service)
 
-## Подключение к базе данных
-
-### Способ 1: Интерактивный режим через mongosh
+### Подключение
 ```bash
-docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app
+docker-compose exec mongodb_user mongosh -u root -p secret --authenticationDatabase admin user_db
 ```
 
-### Способ 2: Выполнение одной команды
+### Просмотр профилей
 ```bash
-docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.userprofiles.find().pretty()"
-```
-
-## Полезные MongoDB команды
-
-### Просмотр всех коллекций
-```javascript
-show collections
-```
-
-### Просмотр всех профилей
-```javascript
-db.userprofiles.find().pretty()
-```
-
-### Просмотр профилей с ограничением
-```javascript
-db.userprofiles.find().limit(10).pretty()
-```
-
-### Подсчет профилей
-```javascript
-db.userprofiles.countDocuments()
-```
-
-### Поиск профиля по userId
-```javascript
-db.userprofiles.findOne({ userId: "uuid-здесь" })
-```
-
-### Поиск профиля по username
-```javascript
-db.userprofiles.findOne({ username: "username" })
-```
-
-### Удаление профиля по userId
-```javascript
-db.userprofiles.deleteOne({ userId: "uuid-здесь" })
-```
-
-### Удаление профиля по username
-```javascript
-db.userprofiles.deleteOne({ username: "username" })
-```
-
-### Удаление всех профилей (осторожно!)
-```javascript
-db.userprofiles.deleteMany({})
-```
-
-### Обновление профиля
-```javascript
-db.userprofiles.updateOne(
-  { userId: "uuid-здесь" },
-  { $set: { role: "admin" } }
-)
-```
-
-### Выход из mongosh
-```javascript
-exit
-```
-
----
-
-## Команды для работы с MediaFiles
-
-### Просмотр всех медиафайлов
-```javascript
-db.mediafiles.find().pretty()
-```
-
-### Просмотр медиафайлов с ограничением
-```javascript
-db.mediafiles.find().limit(10).pretty()
-```
-
-### Подсчет медиафайлов
-```javascript
-db.mediafiles.countDocuments()
-```
-
-### Поиск медиафайла по fileId
-```javascript
-db.mediafiles.findOne({ fileId: "uuid-здесь" })
-```
-
-### Поиск медиафайлов по userId
-```javascript
-db.mediafiles.find({ userId: "uuid-здесь" }).pretty()
-```
-
-### Поиск медиафайлов по типу
-```javascript
-db.mediafiles.find({ type: "avatar" }).pretty()
-db.mediafiles.find({ type: "track" }).pretty()
-db.mediafiles.find({ type: "cover" }).pretty()
-```
-
-### Поиск медиафайла по fileName
-```javascript
-db.mediafiles.findOne({ fileName: "имя-файла" })
-```
-
-### Удаление медиафайла по fileId
-```javascript
-db.mediafiles.deleteOne({ fileId: "uuid-здесь" })
-```
-
-### Удаление всех медиафайлов пользователя
-```javascript
-db.mediafiles.deleteMany({ userId: "uuid-здесь" })
-```
-
-### Удаление всех медиафайлов (осторожно!)
-```javascript
-db.mediafiles.deleteMany({})
-```
-
-### Просмотр медиафайлов с сортировкой по дате создания
-```javascript
-db.mediafiles.find().sort({ createdAt: -1 }).limit(10).pretty()
-```
-
-### Просмотр только определенных полей
-```javascript
-db.mediafiles.find({}, { fileId: 1, userId: 1, type: 1, originalName: 1, size: 1, createdAt: 1 }).pretty()
-```
-
-## Прямые команды через docker-compose
-
-### Просмотр всех профилей
-```bash
-docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.userprofiles.find().pretty()"
+docker-compose exec mongodb_user mongosh -u root -p secret --authenticationDatabase admin user_db --eval "db.userprofiles.find().pretty()"
 ```
 
 ### Удаление всех профилей
 ```bash
-docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.userprofiles.deleteMany({})"
-```
-
-### Подсчет записей
-```bash
-docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.userprofiles.countDocuments()"
-```
-
-### Просмотр всех медиафайлов
-```bash
-docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.mediafiles.find().pretty()"
-```
-
-### Просмотр медиафайлов с ограничением
-```bash
-docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.mediafiles.find().limit(10).pretty()"
-```
-
-### Подсчет медиафайлов
-```bash
-docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.mediafiles.countDocuments()"
-```
-
-### Поиск медиафайлов по типу
-```bash
-docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.mediafiles.find({ type: 'avatar' }).pretty()"
-```
-
-### Удаление всех медиафайлов (осторожно!)
-```bash
-docker-compose exec mongodb mongosh -u root -p secret --authenticationDatabase admin music_app --eval "db.mediafiles.deleteMany({})"
-```
-
-## Готовые скрипты
-
-### Удаление всех профилей
-**Linux/Mac:**
-```bash
-./scripts/db-delete-mongo-profiles.sh
-```
-
-**Windows:**
-```cmd
-scripts\db-delete-mongo-profiles.bat
-```
-
-### Просмотр всех профилей
-**Linux/Mac:**
-```bash
-./scripts/db-view-mongo-profiles.sh
-```
-
-**Windows:**
-```cmd
-scripts\db-view-mongo-profiles.bat
+docker-compose exec mongodb_user mongosh -u root -p secret --authenticationDatabase admin user_db --eval "db.userprofiles.deleteMany({})"
 ```
 
 ### Подсчет профилей
-**Linux/Mac:**
 ```bash
-./scripts/db-count-mongo-profiles.sh
+docker-compose exec mongodb_user mongosh -u root -p secret --authenticationDatabase admin user_db --eval "db.userprofiles.countDocuments()"
 ```
 
-**Windows:**
-```cmd
-scripts\db-count-mongo-profiles.bat
-```
+**Параметры подключения:**
+- Host: localhost
+- Port: 27017
+- Database: user_db
+- Username: root
+- Password: secret
+- Auth Database: admin
 
-### Интерактивное подключение
-**Linux/Mac:**
+---
+
+## MongoDB (Media Service)
+
+### Подключение
 ```bash
-./scripts/db-connect-mongo.sh
+docker-compose exec mongodb_media mongosh -u root -p secret --authenticationDatabase admin media_db
 ```
 
-**Windows:**
-```cmd
-scripts\db-connect-mongo.bat
-```
-
-### Просмотр всех медиафайлов
-**Linux/Mac:**
+### Просмотр медиафайлов
 ```bash
-./scripts/db-view-mediafiles.sh
+docker-compose exec mongodb_media mongosh -u root -p secret --authenticationDatabase admin media_db --eval "db.mediafiles.find().pretty()"
 ```
 
-**Windows:**
-```cmd
-scripts\db-view-mediafiles.bat
-```
-
-### Подсчет медиафайлов
-**Linux/Mac:**
+### Удаление всех медиафайлов
 ```bash
-./scripts/db-count-mediafiles.sh
+docker-compose exec mongodb_media mongosh -u root -p secret --authenticationDatabase admin media_db --eval "db.mediafiles.deleteMany({})"
 ```
 
-**Windows:**
-```cmd
-scripts\db-count-mediafiles.bat
-```
+**Параметры подключения:**
+- Host: localhost
+- Port: 27018
+- Database: media_db
+- Username: root
+- Password: secret
+- Auth Database: admin
 
-### Удаление всех медиафайлов (осторожно!)
-**Linux/Mac:**
+---
+
+## MongoDB (Social Service)
+
+### Подключение
 ```bash
-./scripts/db-delete-mediafiles.sh
+docker-compose exec mongodb_social mongosh -u root -p secret --authenticationDatabase admin social_db
 ```
 
-**Windows:**
-```cmd
-scripts\db-delete-mediafiles.bat
-```
-
-## Подключение через внешний клиент
-
-### Параметры подключения:
-- **Host:** localhost
-- **Port:** 27017
-- **Database:** music_app
-- **Username:** root
-- **Password:** secret
-- **Authentication Database:** admin
-
-### Популярные клиенты:
-- **MongoDB Compass** (официальный GUI): https://www.mongodb.com/products/compass
-- **Studio 3T** (десктоп): https://studio3t.com/
-- **NoSQLBooster** (десктоп): https://www.nosqlbooster.com/
-- **TablePlus** (десктоп): https://tableplus.com/
-
-## Полезные команды Docker
-
-### Просмотр логов MongoDB
+### Просмотр подписок
 ```bash
-docker-compose logs mongodb
+docker-compose exec mongodb_social mongosh -u root -p secret --authenticationDatabase admin social_db --eval "db.follows.find().pretty()"
 ```
 
-### Остановка базы данных
-```bash
-docker-compose stop mongodb
-```
-
-### Резервное копирование базы данных
-```bash
-docker-compose exec mongodb mongodump -u root -p secret --authenticationDatabase admin --db music_app --out /backup
-docker cp $(docker-compose ps -q mongodb):/backup ./mongodb-backup
-```
-
-### Восстановление из резервной копии
-```bash
-docker cp ./mongodb-backup $(docker-compose ps -q mongodb):/backup
-docker-compose exec mongodb mongorestore -u root -p secret --authenticationDatabase admin --db music_app /backup/music_app
-```
-
+**Параметры подключения:**
+- Host: localhost
+- Port: 27019
+- Database: social_db
+- Username: root
+- Password: secret
+- Auth Database: admin

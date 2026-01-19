@@ -1,42 +1,99 @@
 version: "3.8"
 
 services:
-  # Базы данных (общие для всех сервисов)
-  postgres:
+  # Базы данных для каждого сервиса (Database per Service)
+  postgres_auth:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: music_app
-      POSTGRES_USER: musician
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
       POSTGRES_PASSWORD: secret
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_auth_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U musician"]
+      test: ["CMD-SHELL", "pg_isready -U auth_user"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  mongodb:
+  mongodb_user:
     image: mongo:7
     environment:
+      MONGO_INITDB_DATABASE: user_db
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: secret
     ports:
       - "27017:27017"
     volumes:
-      - mongodb_data:/data/db
+      - mongodb_user_data:/data/db
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  redis:
+  mongodb_media:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_DATABASE: media_db
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: secret
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongodb_media_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb_social:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_DATABASE: social_db
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: secret
+    ports:
+      - "27019:27017"
+    volumes:
+      - mongodb_social_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis инстансы для каждого сервиса
+  redis_auth:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    volumes:
+      - redis_auth_data:/data
+
+  redis_user:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_user_data:/data
+
+  redis_media:
+    image: redis:7-alpine
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_media_data:/data
+
+  redis_social:
+    image: redis:7-alpine
+    ports:
+      - "6382:6379"
+    volumes:
+      - redis_social_data:/data
 
   rabbitmq: # Для межсервисного общения
     image: rabbitmq:3-management-alpine
@@ -69,9 +126,9 @@ services:
       # Исключаем node_modules из монтирования (используем из образа)
       - /app/node_modules
     depends_on:
-      postgres:
+      postgres_auth:
         condition: service_healthy
-      redis:
+      redis_auth:
         condition: service_started
       rabbitmq:
         condition: service_healthy
@@ -79,8 +136,8 @@ services:
         condition: service_started
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://musician:secret@postgres:5432/music_app
-      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://auth_user:secret@postgres_auth:5432/auth_db
+      - REDIS_URL=redis://redis_auth:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - AUTH_QUEUE=auth_queue
       - USER_QUEUE=user_queue
@@ -105,16 +162,16 @@ services:
       # Исключаем node_modules из монтирования (используем из образа)
       - /app/node_modules
     depends_on:
-      mongodb:
+      mongodb_user:
         condition: service_healthy
-      redis:
+      redis_user:
         condition: service_started
       rabbitmq:
         condition: service_healthy
     environment:
       - NODE_ENV=development
-      - MONGODB_URL=mongodb://root:secret@mongodb:27017/music_app?authSource=admin
-      - REDIS_URL=redis://redis:6379
+      - MONGODB_URL=mongodb://root:secret@mongodb_user:27017/user_db?authSource=admin
+      - REDIS_URL=redis://redis_user:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - USER_QUEUE=user_queue
     restart: unless-stopped
@@ -139,9 +196,9 @@ services:
       - /app/node_modules
       - uploads_volume:/app/uploads
     depends_on:
-      mongodb:
+      mongodb_media:
         condition: service_healthy
-      redis:
+      redis_media:
         condition: service_started
       rabbitmq:
         condition: service_healthy
@@ -149,8 +206,8 @@ services:
         condition: service_started
     environment:
       - NODE_ENV=development
-      - MONGODB_URL=mongodb://root:secret@mongodb:27017/music_app?authSource=admin
-      - REDIS_URL=redis://redis:6379
+      - MONGODB_URL=mongodb://root:secret@mongodb_media:27017/media_db?authSource=admin
+      - REDIS_URL=redis://redis_media:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - MEDIA_QUEUE=media_queue
       - USER_QUEUE=user_queue
@@ -176,9 +233,9 @@ services:
       # Исключаем node_modules из монтирования (используем из образа)
       - /app/node_modules
     depends_on:
-      mongodb:
+      mongodb_social:
         condition: service_healthy
-      redis:
+      redis_social:
         condition: service_started
       rabbitmq:
         condition: service_healthy
@@ -186,8 +243,8 @@ services:
         condition: service_started
     environment:
       - NODE_ENV=development
-      - MONGODB_URL=mongodb://root:secret@mongodb:27017/music_app?authSource=admin
-      - REDIS_URL=redis://redis:6379
+      - MONGODB_URL=mongodb://root:secret@mongodb_social:27017/social_db?authSource=admin
+      - REDIS_URL=redis://redis_social:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - SOCIAL_QUEUE=social_queue
       - USER_QUEUE=user_queue
@@ -230,6 +287,12 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres_data:
-  mongodb_data:
+  postgres_auth_data:
+  mongodb_user_data:
+  mongodb_media_data:
+  mongodb_social_data:
+  redis_auth_data:
+  redis_user_data:
+  redis_media_data:
+  redis_social_data:
   uploads_volume:

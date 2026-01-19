@@ -32,8 +32,8 @@ export class AuthService {
 
   /**
    * Регистрация пользователя с паттерном Saga
-   * 1. Создаем пользователя в PostgreSQL
-   * 2. Отправляем событие в User Service для создания профиля
+   * 1. Создаем пользователя в PostgreSQL (auth_db - база данных Auth Service)
+   * 2. Отправляем событие в User Service для создания профиля (user_db - база данных User Service)
    * 3. Если профиль не создался - откатываем изменения
    */
   async register(createUserDto: ICreateUserDto) {
@@ -72,7 +72,7 @@ export class AuthService {
         };
       }
 
-      // 1. Создаем пользователя в PostgreSQL
+      // 1. Создаем пользователя в PostgreSQL (auth_db)
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(
         createUserDto.password,
@@ -123,7 +123,7 @@ export class AuthService {
 
         if (!profileResult.success) {
           await this.authUserRepository.delete(savedUser.id);
-          // Пытаемся удалить профиль из MongoDB, если он был создан частично
+          // Пытаемся удалить профиль через User Service (user_db), если он был создан частично
           try {
             await firstValueFrom(
               this.userClient
@@ -158,7 +158,7 @@ export class AuthService {
         console.error("Failed to create profile, error:", error);
         try {
           await this.authUserRepository.delete(savedUser.id);
-          // Пытаемся удалить профиль из MongoDB, если он был создан частично
+          // Пытаемся удалить профиль через User Service (user_db), если он был создан частично
           try {
             await firstValueFrom(
               this.userClient
@@ -210,7 +210,7 @@ export class AuthService {
         };
       }
 
-      // Если нет в кэше, загружаем из PostgreSQL
+      // Если нет в кэше, загружаем из PostgreSQL (auth_db)
       const user = await this.authUserRepository.findOne({
         where: { email },
       });
@@ -277,7 +277,7 @@ export class AuthService {
         };
       }
 
-      // Если нет в кэше, загружаем из PostgreSQL
+      // Если нет в кэше, загружаем из PostgreSQL (auth_db)
       const user = await this.authUserRepository.findOne({
         where: { id },
       });
@@ -316,11 +316,11 @@ export class AuthService {
 
   /**
    * Вход в систему
-   * Получаем данные из PostgreSQL и профиль из MongoDB
+   * Получаем данные из PostgreSQL (auth_db) и профиль из User Service (user_db)
    */
   async login(loginDto: ILoginDto) {
     try {
-      // Получаем пользователя из PostgreSQL
+      // Получаем пользователя из PostgreSQL (auth_db)
       const authResult = await this.getUserByEmail(loginDto.email);
 
       if (!authResult.success || !authResult.user) {
@@ -432,7 +432,7 @@ export class AuthService {
         };
       }
 
-      // Проверяем существование пользователя в PostgreSQL
+      // Проверяем существование пользователя в PostgreSQL (auth_db)
       const authResult = await this.getUserById(userId);
       if (!authResult.success || !authResult.user) {
         return {

@@ -46,7 +46,7 @@ export class SocialService {
       }
 
       // Пытаемся создать новую подписку
-      // Уникальный индекс MongoDB предотвратит дубликаты
+      // Уникальный индекс MongoDB (social_db) предотвратит дубликаты
       // Это более надежно, чем проверка + создание, так как избегает race condition
       const follow = new this.followModel({
         followerId,

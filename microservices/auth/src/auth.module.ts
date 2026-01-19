@@ -14,7 +14,7 @@ import { AuthUser } from "@app/shared";
       type: "postgres",
       url:
         process.env.DATABASE_URL ||
-        "postgresql://musician:secret@localhost:5432/music_app",
+        "postgresql://auth_user:secret@localhost:5432/auth_db",
       entities: [AuthUser],
       synchronize: process.env.NODE_ENV !== "production",
       logging: process.env.NODE_ENV === "development",

@@ -136,7 +136,7 @@ export class MediaService {
       // Генерируем URL
       const url = this.storageService.generateFileUrl(fileId);
 
-      // Сохраняем метаданные в MongoDB
+      // Сохраняем метаданные в MongoDB (media_db)
       const mediaFile = new this.mediaFileModel({
         fileId,
         userId,
@@ -495,7 +495,7 @@ export class MediaService {
       // Удаляем файл с диска
       await this.storageService.deleteFile(file.path);
 
-      // Удаляем запись из MongoDB
+      // Удаляем запись из MongoDB (media_db)
       await this.mediaFileModel.deleteOne({ fileId });
 
       // Инвалидируем кэш
