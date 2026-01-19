@@ -493,6 +493,54 @@ export class UsersService {
   }
 
   /**
+   * Обновление счетчика прослушиваний пользователя
+   */
+  async updateTotalPlays(
+    userId: string,
+    delta: number,
+  ): Promise<IBaseResponse> {
+    try {
+      const profile = await this.userProfileModel.findOne({ userId });
+
+      if (!profile) {
+        return {
+          success: false,
+          error: "Profile not found",
+        };
+      }
+
+      // Сохраняем username для инвалидации кэша
+      const username = profile.username;
+
+      // Обновляем счетчик прослушиваний
+      const currentCount = profile.stats?.totalPlays || 0;
+      const newCount = Math.max(0, currentCount + delta);
+
+      profile.stats = {
+        ...profile.stats,
+        totalPlays: newCount,
+      };
+
+      const updatedProfile = await profile.save();
+
+      // Инвалидируем кэш перед обновлением
+      await this.invalidateProfileCache(userId, username);
+
+      // Кэшируем обновленный профиль
+      await this.cacheProfile(updatedProfile);
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: getErrorMessage(error, "Failed to update total plays"),
+      };
+    }
+  }
+
+  /**
    * Обновление списка подписок пользователя
    * Добавляет или удаляет userId из массива following
    */

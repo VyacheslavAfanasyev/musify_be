@@ -118,6 +118,20 @@ export class UserController {
     );
   }
 
+  @MessagePattern({ cmd: "updateTotalPlays" })
+  async updateTotalPlays(
+    @Payload()
+    payload: {
+      userId: string;
+      delta: number;
+    },
+  ) {
+    return await this.usersService.updateTotalPlays(
+      payload.userId,
+      payload.delta,
+    );
+  }
+
   @MessagePattern({ cmd: "deleteProfile" })
   deleteProfile(@Payload() payload: { userId: string }) {
     return this.usersService.deleteProfile(payload.userId);

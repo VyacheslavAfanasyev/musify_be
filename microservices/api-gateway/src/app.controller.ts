@@ -9,11 +9,13 @@ import {
   UseInterceptors,
   UploadedFile,
   Res,
+  Req,
+  Query,
   HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AppService } from './app.service';
 
 // Тип для загруженного файла
@@ -93,6 +95,14 @@ export class AppController {
   @Get('users/:username/tracks')
   getUserTracks(@Param('username') username: string) {
     return this.appService.getUserTracks(username);
+  }
+
+  @Get('users/:username/public')
+  getUserPublicProfile(
+    @Param('username') username: string,
+    @Query('viewerId') viewerId?: string,
+  ) {
+    return this.appService.getPublicProfile(username, viewerId);
   }
 
   @Put('users/:id/profile')
@@ -218,10 +228,11 @@ export class AppController {
   @Get('media/track/:trackId')
   async getTrack(
     @Param('trackId') trackId: string,
+    @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
     // Парсим Range заголовок для поддержки стриминга
-    const rangeHeader = res.req.headers.range;
+    const rangeHeader = req.headers.range;
     let range: { start: number; end: number } | undefined;
 
     if (rangeHeader) {
@@ -356,5 +367,24 @@ export class AppController {
     @Param('followingId') followingId: string,
   ) {
     return await this.appService.isFollowing(followerId, followingId);
+  }
+
+  @Get('social/profile/:username')
+  async getPublicProfile(
+    @Param('username') username: string,
+    @Query('viewerId') viewerId?: string,
+  ) {
+    return await this.appService.getPublicProfile(username, viewerId);
+  }
+
+  @Get('social/feed')
+  async getUserFeed(@Query('userId') userId?: string) {
+    if (!userId) {
+      return {
+        success: false,
+        error: 'userId is required',
+      };
+    }
+    return await this.appService.getUserFeed(userId);
   }
 }

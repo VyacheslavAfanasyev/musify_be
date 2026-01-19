@@ -10,9 +10,12 @@ export interface IFollowDto {
   followingId: string;
 }
 
+import type { IUserProfile } from "./user-profile";
+import type { IMediaFileResponse } from "./media";
+
 export interface IPublicProfile {
-  profile: any; // IUserProfile
-  tracks: any[]; // IMediaFile[]
+  profile: IUserProfile;
+  tracks: IMediaFileResponse[];
   followersCount: number;
   followingCount: number;
   isFollowing?: boolean; // для текущего пользователя

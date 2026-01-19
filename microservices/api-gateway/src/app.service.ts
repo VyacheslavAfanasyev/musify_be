@@ -628,4 +628,32 @@ export class AppService {
       return this.handleError(error);
     }
   }
+
+  /**
+   * Получить публичную страницу пользователя
+   */
+  async getPublicProfile(username: string, viewerId?: string) {
+    try {
+      return await this.sendToSocialService<
+        { success: true; profile: any } | { success: false; error: string },
+        { username: string; viewerId?: string }
+      >('getPublicProfile', { username, viewerId });
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Получить ленту обновлений пользователя
+   */
+  async getUserFeed(userId: string) {
+    try {
+      return await this.sendToSocialService<
+        { success: true; feed: any[] } | { success: false; error: string },
+        { userId: string }
+      >('getUserFeed', { userId });
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
 }

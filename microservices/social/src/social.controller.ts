@@ -1,5 +1,5 @@
 import { Controller } from "@nestjs/common";
-import { MessagePattern, Payload } from "@nestjs/microservices";
+import { MessagePattern, EventPattern, Payload } from "@nestjs/microservices";
 import { SocialService } from "./social.service";
 import type { IFollowDto } from "@app/shared";
 
@@ -46,5 +46,27 @@ export class SocialController {
       payload.followerId,
       payload.followingId,
     );
+  }
+
+  @MessagePattern({ cmd: "getUserFeed" })
+  async getUserFeed(@Payload() payload: { userId: string }) {
+    return await this.socialService.getUserFeed(payload.userId);
+  }
+
+  @MessagePattern({ cmd: "getPublicProfile" })
+  async getPublicProfile(
+    @Payload() payload: { username: string; viewerId?: string },
+  ) {
+    return await this.socialService.getPublicProfile(
+      payload.username,
+      payload.viewerId,
+    );
+  }
+
+  @EventPattern("user.track.published")
+  async handleTrackPublished(
+    @Payload() payload: { userId: string; trackId: string; trackTitle: string },
+  ) {
+    await this.socialService.handleTrackPublished(payload);
   }
 }
