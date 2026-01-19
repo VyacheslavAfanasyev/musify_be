@@ -4,7 +4,6 @@ import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { Model } from "mongoose";
 import { ClientProxy } from "@nestjs/microservices";
-import { firstValueFrom } from "rxjs";
 import {
   MediaFile,
   MediaFileDocument,
@@ -43,6 +42,7 @@ export class MediaService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private storageService: StorageService,
     @Inject("USER_SERVICE") private userClient: ClientProxy,
+    @Inject("SOCIAL_SERVICE") private socialClient: ClientProxy,
   ) {}
 
   /**
@@ -152,14 +152,32 @@ export class MediaService {
 
       const savedFile = await mediaFile.save();
 
-      // Если это аватарка, обновляем профиль пользователя
+      // Отправляем события о загрузке файла (Event-Driven)
       if (type === "avatar") {
-        await this.updateUserAvatar(userId, url);
-      }
-
-      // Если это трек, обновляем счетчик треков
-      if (type === "track") {
-        await this.updateTracksCount(userId, 1);
+        // Отправляем событие о загрузке аватарки
+        this.userClient.emit("media.avatar.uploaded", {
+          userId,
+          avatarUrl: url,
+        });
+        this.logger.log(
+          `[EVENT] media.avatar.uploaded emitted: userId=${userId}, avatarUrl=${url}`,
+        );
+      } else if (type === "track") {
+        // Отправляем событие о загрузке трека в User Service
+        this.userClient.emit("media.track.uploaded", {
+          userId,
+          trackId: fileId,
+          trackTitle: file.originalname,
+        });
+        // Отправляем событие о публикации трека в Social Service для обновления ленты
+        this.socialClient.emit("user.track.published", {
+          userId,
+          trackId: fileId,
+          trackTitle: file.originalname,
+        });
+        this.logger.log(
+          `[EVENT] media.track.uploaded and user.track.published emitted: userId=${userId}, trackId=${fileId}`,
+        );
       }
 
       // Кэшируем файл
@@ -501,25 +519,35 @@ export class MediaService {
       // Инвалидируем кэш
       await this.invalidateFileCache(fileId, userId, fileType);
 
-      // Если это трек, обновляем счетчик треков
+      // Отправляем события об удалении файла (Event-Driven)
       if (fileType === "track") {
-        await this.updateTracksCount(userId, -1);
-      }
-
-      // Если это аватарка, проверяем, остались ли еще аватарки у пользователя
-      if (fileType === "avatar") {
+        // Отправляем событие об удалении трека
+        this.userClient.emit("media.track.deleted", {
+          userId,
+          trackId: fileId,
+        });
+        this.logger.log(
+          `[EVENT] media.track.deleted emitted: userId=${userId}, trackId=${fileId}`,
+        );
+      } else if (fileType === "avatar") {
         const remainingAvatars = await this.mediaFileModel.countDocuments({
           userId,
           type: "avatar",
         });
 
-        // Если это была последняя аватарка, очищаем avatarUrl в профиле
+        // Если это была последняя аватарка, отправляем событие об удалении аватарки
         if (remainingAvatars === 0) {
-          await this.updateUserAvatar(userId, undefined);
+          this.userClient.emit("media.avatar.deleted", {
+            userId,
+          });
+          this.logger.log(
+            `[EVENT] media.avatar.deleted emitted: userId=${userId}`,
+          );
         } else {
           // Если остались другие аватарки, проверяем, была ли удаленная аватарка текущей
           // Для этого проверяем, совпадает ли URL удаленного файла с avatarUrl в профиле
           try {
+            const { firstValueFrom } = await import("rxjs");
             const profileResult = await firstValueFrom(
               this.userClient.send({ cmd: "getProfileByUserId" }, { userId }),
             );
@@ -536,10 +564,22 @@ export class MediaService {
                 .exec();
 
               if (latestAvatar) {
-                await this.updateUserAvatar(userId, latestAvatar.url);
+                // Отправляем событие об обновлении аватарки
+                this.userClient.emit("media.avatar.uploaded", {
+                  userId,
+                  avatarUrl: latestAvatar.url,
+                });
+                this.logger.log(
+                  `[EVENT] media.avatar.uploaded emitted (after deletion): userId=${userId}, avatarUrl=${latestAvatar.url}`,
+                );
               } else {
-                // Если почему-то не нашли аватарку, очищаем
-                await this.updateUserAvatar(userId, undefined);
+                // Если почему-то не нашли аватарку, отправляем событие об удалении
+                this.userClient.emit("media.avatar.deleted", {
+                  userId,
+                });
+                this.logger.log(
+                  `[EVENT] media.avatar.deleted emitted: userId=${userId}`,
+                );
               }
             }
           } catch (error) {
@@ -597,64 +637,8 @@ export class MediaService {
     return null;
   }
 
-  /**
-   * Обновление аватарки пользователя в User Service
-   */
-  private async updateUserAvatar(
-    userId: string,
-    avatarUrl: string | undefined,
-  ): Promise<void> {
-    try {
-      // Если avatarUrl пустая строка или undefined, передаем null для очистки поля
-      const updateDto: { avatarUrl?: string | null } = {};
-      if (avatarUrl && avatarUrl.trim() !== "") {
-        updateDto.avatarUrl = avatarUrl;
-      } else {
-        // Для очистки поля передаем null
-        updateDto.avatarUrl = null;
-      }
-
-      await firstValueFrom(
-        this.userClient.send(
-          { cmd: "updateProfile" },
-          {
-            userId,
-            updateDto,
-          },
-        ),
-      );
-      this.logger.log(
-        `User avatar updated: ${userId}, avatarUrl: ${avatarUrl || "cleared"}`,
-      );
-    } catch (error) {
-      this.logger.error(`Failed to update user avatar: ${error}`);
-      // Не прерываем выполнение, если не удалось обновить профиль
-    }
-  }
-
-  /**
-   * Обновление счетчика треков пользователя в User Service
-   */
-  private async updateTracksCount(
-    userId: string,
-    delta: number,
-  ): Promise<void> {
-    try {
-      await firstValueFrom(
-        this.userClient.send(
-          { cmd: "updateTracksCount" },
-          {
-            userId,
-            delta,
-          },
-        ),
-      );
-      this.logger.log(`User tracks count updated: ${userId}, delta: ${delta}`);
-    } catch (error) {
-      this.logger.error(`Failed to update tracks count: ${error}`);
-      // Не прерываем выполнение, если не удалось обновить счетчик
-    }
-  }
+  // Методы updateUserAvatar и updateTracksCount удалены,
+  // так как теперь используется Event-Driven Architecture через события
 
   /**
    * Кэширование файла

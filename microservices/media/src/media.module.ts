@@ -44,7 +44,7 @@ import { MediaFile, MediaFileSchema } from "@app/shared";
         };
       },
     }),
-    // Клиент для User Service
+    // Клиенты для User Service и Social Service
     ClientsModule.registerAsync([
       {
         name: "USER_SERVICE",
@@ -52,6 +52,25 @@ import { MediaFile, MediaFileSchema } from "@app/shared";
           const rabbitmqUrl =
             process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";
           const queue = process.env.USER_QUEUE || "user_queue";
+
+          return {
+            transport: Transport.RMQ,
+            options: {
+              urls: [rabbitmqUrl],
+              queue,
+              queueOptions: {
+                durable: true,
+              },
+            },
+          };
+        },
+      },
+      {
+        name: "SOCIAL_SERVICE",
+        useFactory: () => {
+          const rabbitmqUrl =
+            process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";
+          const queue = process.env.SOCIAL_QUEUE || "social_queue";
 
           return {
             transport: Transport.RMQ,

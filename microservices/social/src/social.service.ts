@@ -4,7 +4,6 @@ import { Model } from "mongoose";
 import { ClientProxy } from "@nestjs/microservices";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
-import { firstValueFrom } from "rxjs";
 import {
   Follow,
   FollowDocument,
@@ -55,37 +54,16 @@ export class SocialService {
 
       await follow.save();
 
-      // Обновляем счетчики и список подписок в User Service
-      try {
-        // Увеличиваем followingCount для подписчика
-        await firstValueFrom(
-          this.userClient.send(
-            { cmd: "updateFollowingCount" },
-            { userId: followerId, delta: 1 },
-          ),
-        );
+      // Отправляем событие о создании подписки (Event-Driven)
+      // User Service обработает это событие и обновит счетчики асинхронно
+      this.userClient.emit("follow.created", {
+        followerId,
+        followingId,
+      });
 
-        // Добавляем followingId в список подписок пользователя
-        await firstValueFrom(
-          this.userClient.send(
-            { cmd: "updateFollowingList" },
-            { userId: followerId, followingId, action: "add" },
-          ),
-        );
-
-        // Увеличиваем followersCount для того, на кого подписались
-        await firstValueFrom(
-          this.userClient.send(
-            { cmd: "updateFollowersCount" },
-            { userId: followingId, delta: 1 },
-          ),
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to update counters after follow: ${getErrorMessage(error)}`,
-        );
-        // Не прерываем выполнение, так как подписка уже создана
-      }
+      this.logger.log(
+        `[EVENT] follow.created emitted: ${followerId} -> ${followingId}`,
+      );
 
       return {
         success: true,
@@ -133,37 +111,16 @@ export class SocialService {
         };
       }
 
-      // Обновляем счетчики и список подписок в User Service
-      try {
-        // Уменьшаем followingCount для подписчика
-        await firstValueFrom(
-          this.userClient.send(
-            { cmd: "updateFollowingCount" },
-            { userId: followerId, delta: -1 },
-          ),
-        );
+      // Отправляем событие об удалении подписки (Event-Driven)
+      // User Service обработает это событие и обновит счетчики асинхронно
+      this.userClient.emit("follow.deleted", {
+        followerId,
+        followingId,
+      });
 
-        // Удаляем followingId из списка подписок пользователя
-        await firstValueFrom(
-          this.userClient.send(
-            { cmd: "updateFollowingList" },
-            { userId: followerId, followingId, action: "remove" },
-          ),
-        );
-
-        // Уменьшаем followersCount для того, от кого отписались
-        await firstValueFrom(
-          this.userClient.send(
-            { cmd: "updateFollowersCount" },
-            { userId: followingId, delta: -1 },
-          ),
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to update counters after unfollow: ${getErrorMessage(error)}`,
-        );
-        // Не прерываем выполнение, так как отписка уже выполнена
-      }
+      this.logger.log(
+        `[EVENT] follow.deleted emitted: ${followerId} -> ${followingId}`,
+      );
 
       return {
         success: true,
@@ -313,6 +270,9 @@ export class SocialService {
 
       for (const followingId of followingIds) {
         try {
+          // Используем синхронный вызов для получения данных для ленты
+          // Это допустимо, так как это запрос данных, а не изменение состояния
+          const { firstValueFrom } = await import("rxjs");
           const profileResult = await firstValueFrom(
             this.userClient.send<{ success: boolean; profile?: IUserProfile }>(
               { cmd: "getProfileByUserId" },
@@ -324,6 +284,7 @@ export class SocialService {
             const profile = profileResult.profile;
 
             // Получаем последние треки пользователя (например, последние 5)
+            const { firstValueFrom } = await import("rxjs");
             const tracksResult = await firstValueFrom(
               this.mediaClient.send<
                 | { success: true; tracks: IMediaFileResponse[] }
@@ -400,6 +361,8 @@ export class SocialService {
       }
 
       // Получаем профиль пользователя для username и avatarUrl
+      // Используем синхронный вызов для получения данных (это допустимо для чтения)
+      const { firstValueFrom } = await import("rxjs");
       const profileResult = await firstValueFrom(
         this.userClient.send<{ success: boolean; profile?: IUserProfile }>(
           { cmd: "getProfileByUserId" },
@@ -468,6 +431,8 @@ export class SocialService {
   > {
     try {
       // Получаем профиль пользователя по username
+      // Используем синхронный вызов для получения данных (это допустимо для чтения)
+      const { firstValueFrom } = await import("rxjs");
       const profileResult = await firstValueFrom(
         this.userClient.send<
           | { success: true; profile: IUserProfile }
@@ -519,6 +484,8 @@ export class SocialService {
       }
 
       // Получаем треки пользователя
+      // Используем синхронный вызов для получения данных (это допустимо для чтения)
+      const { firstValueFrom } = await import("rxjs");
       const tracksResult = await firstValueFrom(
         this.mediaClient.send<
           | { success: true; tracks: IMediaFileResponse[] }

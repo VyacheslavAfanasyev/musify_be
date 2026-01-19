@@ -1,6 +1,6 @@
 import { Injectable, Inject } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { ClientProxy } from "@nestjs/microservices";
+import { ClientProxy, EventPattern } from "@nestjs/microservices";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { firstValueFrom, timeout, catchError, throwError } from "rxjs";
@@ -143,6 +143,14 @@ export class AuthService {
             error: profileResult.error || "Failed to create user profile",
           };
         }
+
+        // Отправляем событие о создании пользователя
+        this.userClient.emit("user.created", {
+          userId: savedUser.id,
+          email: savedUser.email,
+          username: createUserDto.username.trim(),
+          role: createUserDto.role || "listener",
+        });
 
         const { password: _password, ...userWithoutPassword } = savedUser;
 
