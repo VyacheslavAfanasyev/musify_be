@@ -4,6 +4,7 @@ import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { Model } from "mongoose";
 import { ClientProxy } from "@nestjs/microservices";
+import { firstValueFrom } from "rxjs";
 import {
   MediaFile,
   MediaFileDocument,
@@ -88,6 +89,11 @@ export class MediaService {
         return { success: false, error: validationError };
       }
 
+      // Для аватарок: удаляем все старые аватарки пользователя перед загрузкой новой
+      if (type === "avatar") {
+        await this.deleteOldUserAvatars(userId);
+      }
+
       // Генерируем уникальные идентификаторы
       const fileId = uuidv4();
       const fileName = this.storageService.generateFileName(
@@ -154,7 +160,30 @@ export class MediaService {
 
       // Отправляем события о загрузке файла (Event-Driven)
       if (type === "avatar") {
-        // Отправляем событие о загрузке аватарки
+        // Синхронно обновляем профиль пользователя через MessagePattern
+        // Это гарантирует, что профиль обновится, даже если событие не дойдет
+        try {
+          const updateResult = await firstValueFrom(
+            this.userClient.send(
+              { cmd: "updateProfile" },
+              {
+                userId,
+                updateDto: { avatarUrl: url },
+              },
+            ),
+          );
+          this.logger.log(
+            `[SYNC] Profile updated via MessagePattern: userId=${userId}, avatarUrl=${url}, success=${updateResult?.success}`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `[SYNC] Failed to update profile via MessagePattern: userId=${userId}, error=${error}`,
+          );
+          // Не прерываем выполнение, если не удалось обновить профиль
+          // Попробуем через событие
+        }
+
+        // Также отправляем событие о загрузке аватарки для дополнительных действий
         this.userClient.emit("media.avatar.uploaded", {
           userId,
           avatarUrl: url,
@@ -180,8 +209,13 @@ export class MediaService {
         );
       }
 
-      // Кэшируем файл
+      // Кэшируем файл (важно: это должно быть ПОСЛЕ сохранения и обновления профиля)
       await this.cacheFile(savedFile);
+      if (type === "avatar") {
+        this.logger.log(
+          `[CACHE] New avatar cached for userId: ${userId}, fileId: ${savedFile.fileId}, url: ${url}`,
+        );
+      }
 
       // Возвращаем публичный ответ без внутреннего path
       const fileData: IMediaFileResponse = {
@@ -269,9 +303,29 @@ export class MediaService {
 
       let file: MediaFileDocument | null;
       if (cachedFile) {
-        file = cachedFile;
-        this.logger.log(`[CACHE HIT] Avatar found in cache: ${userId}`);
-      } else {
+        // Проверяем, что файл из кэша все еще существует в БД
+        // Это защита от случая, когда кэш содержит старую аватарку
+        const fileExists = await this.mediaFileModel.findOne({
+          fileId: cachedFile.fileId,
+        });
+
+        if (fileExists) {
+          file = cachedFile;
+          this.logger.log(
+            `[CACHE HIT] Avatar found in cache: userId=${userId}, fileId=${cachedFile.fileId}`,
+          );
+        } else {
+          // Файл из кэша не существует в БД - кэш устарел, инвалидируем его
+          this.logger.log(
+            `[CACHE INVALID] Cached avatar not found in DB, invalidating cache: userId=${userId}, fileId=${cachedFile.fileId}`,
+          );
+          await this.cacheManager.del(cacheKey);
+          file = null;
+        }
+      }
+
+      // Если файла нет в кэше или кэш устарел, ищем в БД
+      if (!file) {
         // Ищем последнюю загруженную аватарку пользователя
         file = await this.mediaFileModel
           .findOne({ userId, type: "avatar" })
@@ -280,7 +334,9 @@ export class MediaService {
 
         if (file) {
           await this.cacheManager.set(cacheKey, file, this.CACHE_TTL);
-          this.logger.log(`[CACHE SET] Avatar cached: ${userId}`);
+          this.logger.log(
+            `[CACHE SET] Avatar cached from DB: userId=${userId}, fileId=${file.fileId}`,
+          );
         }
       }
 
@@ -547,7 +603,6 @@ export class MediaService {
           // Если остались другие аватарки, проверяем, была ли удаленная аватарка текущей
           // Для этого проверяем, совпадает ли URL удаленного файла с avatarUrl в профиле
           try {
-            const { firstValueFrom } = await import("rxjs");
             const profileResult = await firstValueFrom(
               this.userClient.send({ cmd: "getProfileByUserId" }, { userId }),
             );
@@ -598,6 +653,67 @@ export class MediaService {
         success: false,
         error: getErrorMessage(error, "Failed to delete file"),
       };
+    }
+  }
+
+  /**
+   * Удаление всех старых аватарок пользователя
+   * Используется при загрузке новой аватарки, чтобы у пользователя была только одна аватарка
+   */
+  private async deleteOldUserAvatars(userId: string): Promise<void> {
+    try {
+      // Находим все аватарки пользователя
+      const oldAvatars = await this.mediaFileModel.find({
+        userId,
+        type: "avatar",
+      });
+
+      if (oldAvatars.length === 0) {
+        this.logger.log(`No old avatars found for userId: ${userId}`);
+        return;
+      }
+
+      this.logger.log(
+        `Deleting ${oldAvatars.length} old avatar(s) for userId: ${userId}`,
+      );
+
+      // Инвалидируем кэш аватарки пользователя ОДИН РАЗ перед удалением
+      // Это гарантирует, что старый кэш не будет использован
+      const avatarCacheKey = `avatar:${userId}`;
+      await this.cacheManager.del(avatarCacheKey);
+      this.logger.log(`[CACHE] Invalidated avatar cache for userId: ${userId}`);
+
+      // Удаляем файлы с диска
+      for (const avatar of oldAvatars) {
+        try {
+          // Удаляем файл с диска
+          await this.storageService.deleteFile(avatar.path);
+          // Инвалидируем кэш конкретного файла
+          const fileCacheKey = `file:${avatar.fileId}`;
+          await this.cacheManager.del(fileCacheKey);
+        } catch (error) {
+          this.logger.error(
+            `Failed to delete old avatar file ${avatar.fileId}: ${error}`,
+          );
+          // Продолжаем удаление других аватарок даже если одна не удалилась
+        }
+      }
+
+      // Удаляем все записи из MongoDB одной операцией
+      await this.mediaFileModel.deleteMany({
+        userId,
+        type: "avatar",
+      });
+
+      this.logger.log(
+        `Successfully deleted ${oldAvatars.length} old avatar(s) for userId: ${userId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to delete old user avatars for userId ${userId}: ${error}`,
+      );
+      // Не прерываем выполнение, если не удалось удалить старые аватарки
+      // Новая аватарка все равно будет загружена
     }
   }
 
