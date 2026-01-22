@@ -4,7 +4,6 @@ import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { Model } from "mongoose";
 import { ClientProxy } from "@nestjs/microservices";
-import { firstValueFrom } from "rxjs";
 import {
   MediaFile,
   MediaFileDocument,
@@ -160,30 +159,8 @@ export class MediaService {
 
       // Отправляем события о загрузке файла (Event-Driven)
       if (type === "avatar") {
-        // Синхронно обновляем профиль пользователя через MessagePattern
-        // Это гарантирует, что профиль обновится, даже если событие не дойдет
-        try {
-          const updateResult = await firstValueFrom(
-            this.userClient.send(
-              { cmd: "updateProfile" },
-              {
-                userId,
-                updateDto: { avatarUrl: url },
-              },
-            ),
-          );
-          this.logger.log(
-            `[SYNC] Profile updated via MessagePattern: userId=${userId}, avatarUrl=${url}, success=${updateResult?.success}`,
-          );
-        } catch (error) {
-          this.logger.error(
-            `[SYNC] Failed to update profile via MessagePattern: userId=${userId}, error=${error}`,
-          );
-          // Не прерываем выполнение, если не удалось обновить профиль
-          // Попробуем через событие
-        }
-
-        // Также отправляем событие о загрузке аватарки для дополнительных действий
+        // Отправляем событие о загрузке аватарки (Event-Driven Architecture)
+        // User Service обработает это событие и обновит профиль асинхронно
         this.userClient.emit("media.avatar.uploaded", {
           userId,
           avatarUrl: url,
@@ -564,7 +541,6 @@ export class MediaService {
       // Сохраняем данные файла перед удалением
       const fileType = file.type;
       const userId = file.userId;
-      const fileUrl = file.url;
 
       // Удаляем файл с диска
       await this.storageService.deleteFile(file.path);
@@ -600,48 +576,31 @@ export class MediaService {
             `[EVENT] media.avatar.deleted emitted: userId=${userId}`,
           );
         } else {
-          // Если остались другие аватарки, проверяем, была ли удаленная аватарка текущей
-          // Для этого проверяем, совпадает ли URL удаленного файла с avatarUrl в профиле
-          try {
-            const profileResult = await firstValueFrom(
-              this.userClient.send({ cmd: "getProfileByUserId" }, { userId }),
-            );
+          // Если остались другие аватарки, находим последнюю загруженную
+          // и отправляем событие об обновлении аватарки
+          const latestAvatar = await this.mediaFileModel
+            .findOne({ userId, type: "avatar" })
+            .sort({ createdAt: -1 })
+            .exec();
 
-            if (
-              profileResult.success &&
-              profileResult.profile &&
-              profileResult.profile.avatarUrl === fileUrl
-            ) {
-              // Если удаленная аватарка была текущей, обновляем на последнюю загруженную
-              const latestAvatar = await this.mediaFileModel
-                .findOne({ userId, type: "avatar" })
-                .sort({ createdAt: -1 })
-                .exec();
-
-              if (latestAvatar) {
-                // Отправляем событие об обновлении аватарки
-                this.userClient.emit("media.avatar.uploaded", {
-                  userId,
-                  avatarUrl: latestAvatar.url,
-                });
-                this.logger.log(
-                  `[EVENT] media.avatar.uploaded emitted (after deletion): userId=${userId}, avatarUrl=${latestAvatar.url}`,
-                );
-              } else {
-                // Если почему-то не нашли аватарку, отправляем событие об удалении
-                this.userClient.emit("media.avatar.deleted", {
-                  userId,
-                });
-                this.logger.log(
-                  `[EVENT] media.avatar.deleted emitted: userId=${userId}`,
-                );
-              }
-            }
-          } catch (error) {
-            this.logger.error(
-              `Failed to check/update user avatar after deletion: ${error}`,
+          if (latestAvatar) {
+            // Отправляем событие об обновлении аватарки (Event-Driven Architecture)
+            // User Service обработает это событие и обновит профиль асинхронно
+            this.userClient.emit("media.avatar.uploaded", {
+              userId,
+              avatarUrl: latestAvatar.url,
+            });
+            this.logger.log(
+              `[EVENT] media.avatar.uploaded emitted (after deletion): userId=${userId}, avatarUrl=${latestAvatar.url}`,
             );
-            // Не прерываем выполнение, если не удалось обновить профиль
+          } else {
+            // Если не нашли аватарку, отправляем событие об удалении
+            this.userClient.emit("media.avatar.deleted", {
+              userId,
+            });
+            this.logger.log(
+              `[EVENT] media.avatar.deleted emitted: userId=${userId}`,
+            );
           }
         }
       }

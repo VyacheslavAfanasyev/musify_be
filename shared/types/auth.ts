@@ -1,8 +1,10 @@
+import { UserRole } from "./user";
+
 export interface ICreateUserDto {
   email: string;
   username: string;
   password: string;
-  role?: "musician" | "listener";
+  role?: Exclude<UserRole, "admin">;
 }
 
 export interface ILoginDto {

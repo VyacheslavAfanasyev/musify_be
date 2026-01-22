@@ -2,14 +2,15 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document } from "mongoose";
 import { UserRole } from "../types/user";
 
-export type UserProfileDocument = UserProfile & Document;
+export type UserProfileReplicaDocument = UserProfileReplica & Document;
 
 /**
- * UserProfile - схема для MongoDB
- * Хранит все социальные данные пользователя
+ * UserProfileReplica - схема для MongoDB (social_db)
+ * Локальная реплика профилей пользователей для чтения в Social Service
+ * Данные синхронизируются через события (Event-Driven Architecture)
  */
 @Schema({ timestamps: true })
-export class UserProfile {
+export class UserProfileReplica {
   @Prop({ required: true, unique: true, index: true })
   userId: string; // UUID из PostgreSQL
 
@@ -67,9 +68,6 @@ export class UserProfile {
     totalPlays: number;
   };
 
-  @Prop({ type: [String], default: [] })
-  following: string[]; // Массив userId пользователей, на которых подписан
-
   @Prop({
     type: {
       emailNotifications: { type: Boolean, default: true },
@@ -91,8 +89,13 @@ export class UserProfile {
   })
   role: UserRole;
 
+  @Prop({ type: [String], default: [] })
+  following: string[]; // Массив userId пользователей, на которых подписан
+
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-export const UserProfileSchema = SchemaFactory.createForClass(UserProfile);
+export const UserProfileReplicaSchema =
+  SchemaFactory.createForClass(UserProfileReplica);
+

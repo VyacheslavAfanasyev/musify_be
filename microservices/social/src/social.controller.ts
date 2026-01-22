@@ -1,7 +1,7 @@
 import { Controller } from "@nestjs/common";
 import { MessagePattern, EventPattern, Payload } from "@nestjs/microservices";
 import { SocialService } from "./social.service";
-import type { IFollowDto } from "@app/shared";
+import type { IFollowDto, UserRole } from "@app/shared";
 
 @Controller()
 export class SocialController {
@@ -68,5 +68,118 @@ export class SocialController {
     @Payload() payload: { userId: string; trackId: string; trackTitle: string },
   ) {
     await this.socialService.handleTrackPublished(payload);
+  }
+
+  /**
+   * Обработка события создания пользователя
+   * Создает локальную реплику профиля для чтения
+   * Примечание: событие содержит минимальные данные, полные данные будут синхронизированы
+   * через событие user.updated или при первом обращении к профилю
+   */
+  @EventPattern("user.created")
+  async handleUserCreated(
+    @Payload()
+    data: {
+      userId: string;
+      email: string;
+      username: string;
+      role?: UserRole;
+    },
+  ) {
+    // Создаем базовую реплику с минимальными данными
+    // Полные данные будут синхронизированы через события user.updated
+    await this.socialService.syncUserProfile({
+      userId: data.userId,
+      username: data.username,
+      role: data.role || ("listener" as UserRole),
+      stats: {
+        tracksCount: 0,
+        followersCount: 0,
+        followingCount: 0,
+        totalPlays: 0,
+      },
+      preferences: {
+        emailNotifications: true,
+        showOnlineStatus: true,
+        privateProfile: false,
+      },
+    });
+  }
+
+  /**
+   * Обработка события обновления профиля пользователя
+   * Обновляет локальную реплику профиля
+   */
+  @EventPattern("user.updated")
+  async handleUserUpdated(
+    @Payload()
+    data: {
+      userId: string;
+      updateDto: any;
+    },
+  ) {
+    await this.socialService.updateUserProfileReplica(
+      data.userId,
+      data.updateDto,
+    );
+  }
+
+  /**
+   * Обработка события удаления пользователя
+   * Удаляет локальную реплику профиля
+   */
+  @EventPattern("user.deleted")
+  async handleUserDeleted(@Payload() data: { userId: string }) {
+    await this.socialService.deleteUserProfileReplica(data.userId);
+  }
+
+  /**
+   * Обработка события загрузки аватарки
+   * Обновляет avatarUrl в локальной реплике
+   */
+  @EventPattern("media.avatar.uploaded")
+  async handleAvatarUploaded(
+    @Payload() data: { userId: string; avatarUrl: string },
+  ) {
+    await this.socialService.updateUserProfileReplica(data.userId, {
+      avatarUrl: data.avatarUrl,
+    });
+  }
+
+  /**
+   * Обработка события удаления аватарки
+   * Очищает avatarUrl в локальной реплике
+   */
+  @EventPattern("media.avatar.deleted")
+  async handleAvatarDeleted(@Payload() data: { userId: string }) {
+    await this.socialService.updateUserProfileReplica(data.userId, {
+      avatarUrl: null,
+    });
+  }
+
+  /**
+   * Обработка события обновления счетчиков подписок
+   * Обновляет статистику в локальной реплике
+   */
+  @EventPattern("follow.created")
+  async handleFollowCreated(
+    @Payload() data: { followerId: string; followingId: string },
+  ) {
+    await this.socialService.updateFollowStats(
+      data.followerId,
+      data.followingId,
+      "add",
+    );
+  }
+
+  @EventPattern("follow.deleted")
+  async handleFollowDeleted(
+    @Payload() data: { followerId: string; followingId: string },
+  ) {
+    await this.socialService.updateFollowStats(
+      data.followerId,
+      data.followingId,
+      "remove",
+    );
   }
 }

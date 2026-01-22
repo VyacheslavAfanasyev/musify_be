@@ -4,7 +4,12 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { ClientsModule, Transport } from "@nestjs/microservices";
 import { redisStore } from "cache-manager-redis-yet";
 import { SocialService } from "./social.service";
-import { Follow, FollowSchema } from "@app/shared";
+import {
+  Follow,
+  FollowSchema,
+  UserProfileReplica,
+  UserProfileReplicaSchema,
+} from "@app/shared";
 
 @Module({
   imports: [
@@ -22,7 +27,13 @@ import { Follow, FollowSchema } from "@app/shared";
         retryReads: true,
       },
     ),
-    MongooseModule.forFeature([{ name: Follow.name, schema: FollowSchema }]),
+    MongooseModule.forFeature([
+      { name: Follow.name, schema: FollowSchema },
+      {
+        name: UserProfileReplica.name,
+        schema: UserProfileReplicaSchema,
+      },
+    ]),
     // Настройка Redis кэширования
     CacheModule.registerAsync({
       isGlobal: false,

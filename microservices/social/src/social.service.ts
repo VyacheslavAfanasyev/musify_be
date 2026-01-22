@@ -7,12 +7,15 @@ import { Cache } from "cache-manager";
 import {
   Follow,
   FollowDocument,
+  UserProfileReplica,
+  UserProfileReplicaDocument,
   IBaseResponse,
   getErrorMessage,
   IFeedItem,
   IPublicProfile,
   IUserProfile,
   IMediaFileResponse,
+  UserRole,
 } from "@app/shared";
 
 @Injectable()
@@ -23,6 +26,8 @@ export class SocialService {
   constructor(
     @InjectModel(Follow.name)
     private followModel: Model<FollowDocument>,
+    @InjectModel(UserProfileReplica.name)
+    private userProfileReplicaModel: Model<UserProfileReplicaDocument>,
     @Inject("USER_SERVICE") private userClient: ClientProxy,
     @Inject("MEDIA_SERVICE") private mediaClient: ClientProxy,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
@@ -265,24 +270,15 @@ export class SocialService {
         };
       }
 
-      // Получаем профили всех подписок для получения username и avatarUrl
+      // Получаем профили всех подписок из локальной реплики (Event-Driven Architecture)
       const feedItems: IFeedItem[] = [];
 
       for (const followingId of followingIds) {
         try {
-          // Используем синхронный вызов для получения данных для ленты
-          // Это допустимо, так как это запрос данных, а не изменение состояния
-          const { firstValueFrom } = await import("rxjs");
-          const profileResult = await firstValueFrom(
-            this.userClient.send<{ success: boolean; profile?: IUserProfile }>(
-              { cmd: "getProfileByUserId" },
-              { userId: followingId },
-            ),
-          );
+          // Читаем профиль из локальной реплики (нет синхронных вызовов)
+          const profile = await this.getProfileReplicaByUserId(followingId);
 
-          if (profileResult.success && profileResult.profile) {
-            const profile = profileResult.profile;
-
+          if (profile) {
             // Получаем последние треки пользователя (например, последние 5)
             const { firstValueFrom } = await import("rxjs");
             const tracksResult = await firstValueFrom(
@@ -360,22 +356,15 @@ export class SocialService {
         return;
       }
 
-      // Получаем профиль пользователя для username и avatarUrl
-      // Используем синхронный вызов для получения данных (это допустимо для чтения)
-      const { firstValueFrom } = await import("rxjs");
-      const profileResult = await firstValueFrom(
-        this.userClient.send<{ success: boolean; profile?: IUserProfile }>(
-          { cmd: "getProfileByUserId" },
-          { userId: data.userId },
-        ),
-      );
+      // Получаем профиль пользователя из локальной реплики (Event-Driven Architecture)
+      const profile = await this.getProfileReplicaByUserId(data.userId);
 
-      if (!profileResult.success || !profileResult.profile) {
-        this.logger.error(`Failed to get profile for userId: ${data.userId}`);
+      if (!profile) {
+        this.logger.error(
+          `Failed to get profile replica for userId: ${data.userId}`,
+        );
         return;
       }
-
-      const profile = profileResult.profile;
 
       // Создаем новое событие для ленты
       const feedItem: IFeedItem = {
@@ -430,31 +419,16 @@ export class SocialService {
     | { success: false; error: string }
   > {
     try {
-      // Получаем профиль пользователя по username
-      // Используем синхронный вызов для получения данных (это допустимо для чтения)
-      const { firstValueFrom } = await import("rxjs");
-      const profileResult = await firstValueFrom(
-        this.userClient.send<
-          | { success: true; profile: IUserProfile }
-          | { success: false; error: string }
-        >({ cmd: "getProfileByUsername" }, { username }),
-      );
+      // Получаем профиль пользователя из локальной реплики (Event-Driven Architecture)
+      // Данные синхронизируются через события, поэтому нет необходимости в синхронных вызовах
+      const userProfile = await this.getProfileReplicaByUsername(username);
 
-      if (profileResult.success === false) {
-        return {
-          success: false,
-          error: profileResult.error || "User not found",
-        };
-      }
-
-      if (!profileResult.profile) {
+      if (!userProfile) {
         return {
           success: false,
           error: "User not found",
         };
       }
-
-      const userProfile = profileResult.profile;
 
       // Проверяем настройку приватности профиля
       if (userProfile.preferences?.privateProfile) {
@@ -537,6 +511,240 @@ export class SocialService {
         success: false,
         error: getErrorMessage(error, "Failed to get public profile"),
       };
+    }
+  }
+
+  /**
+   * Синхронизация профиля пользователя (создание или обновление реплики)
+   * Используется при обработке событий user.created и user.updated
+   */
+  async syncUserProfile(data: {
+    userId: string;
+    username: string;
+    role?: UserRole;
+    displayName?: string;
+    bio?: string;
+    avatarUrl?: string;
+    coverImageUrl?: string;
+    location?: string;
+    genres?: string[];
+    instruments?: string[];
+    socialLinks?: {
+      youtube?: string;
+      vk?: string;
+      telegram?: string;
+    };
+    stats?: {
+      tracksCount?: number;
+      followersCount?: number;
+      followingCount?: number;
+      totalPlays?: number;
+    };
+    preferences?: {
+      emailNotifications?: boolean;
+      showOnlineStatus?: boolean;
+      privateProfile?: boolean;
+    };
+  }): Promise<void> {
+    try {
+      await this.userProfileReplicaModel.findOneAndUpdate(
+        { userId: data.userId },
+        {
+          $set: {
+            userId: data.userId,
+            username: data.username,
+            role: data.role || "listener",
+            displayName: data.displayName,
+            bio: data.bio,
+            avatarUrl: data.avatarUrl,
+            coverImageUrl: data.coverImageUrl,
+            location: data.location,
+            genres: data.genres || [],
+            instruments: data.instruments || [],
+            socialLinks: data.socialLinks || {},
+            stats: {
+              tracksCount: data.stats?.tracksCount ?? 0,
+              followersCount: data.stats?.followersCount ?? 0,
+              followingCount: data.stats?.followingCount ?? 0,
+              totalPlays: data.stats?.totalPlays ?? 0,
+            },
+            preferences: {
+              emailNotifications: data.preferences?.emailNotifications ?? true,
+              showOnlineStatus: data.preferences?.showOnlineStatus ?? true,
+              privateProfile: data.preferences?.privateProfile ?? false,
+            },
+          },
+        },
+        { upsert: true, new: true },
+      );
+      this.logger.log(
+        `[SYNC] User profile replica synced: userId=${data.userId}, username=${data.username}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[SYNC] Failed to sync user profile replica: userId=${data.userId}, error=${getErrorMessage(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Обновление локальной реплики профиля пользователя
+   */
+  async updateUserProfileReplica(
+    userId: string,
+    updateDto: Partial<IUserProfile>,
+  ): Promise<void> {
+    try {
+      await this.userProfileReplicaModel.findOneAndUpdate(
+        { userId },
+        { $set: updateDto },
+        { upsert: false },
+      );
+      this.logger.log(`[SYNC] User profile replica updated: userId=${userId}`);
+    } catch (error) {
+      this.logger.error(
+        `[SYNC] Failed to update user profile replica: userId=${userId}, error=${getErrorMessage(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Удаление локальной реплики профиля пользователя
+   */
+  async deleteUserProfileReplica(userId: string): Promise<void> {
+    try {
+      await this.userProfileReplicaModel.deleteOne({ userId });
+      this.logger.log(`[SYNC] User profile replica deleted: userId=${userId}`);
+    } catch (error) {
+      this.logger.error(
+        `[SYNC] Failed to delete user profile replica: userId=${userId}, error=${getErrorMessage(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Обновление статистики подписок в локальной реплике
+   */
+  async updateFollowStats(
+    followerId: string,
+    followingId: string,
+    action: "add" | "remove",
+  ): Promise<void> {
+    try {
+      const delta = action === "add" ? 1 : -1;
+
+      // Обновляем followingCount для подписчика
+      await this.userProfileReplicaModel.findOneAndUpdate(
+        { userId: followerId },
+        { $inc: { "stats.followingCount": delta } },
+        { upsert: false },
+      );
+
+      // Обновляем followersCount для того, на кого подписались
+      await this.userProfileReplicaModel.findOneAndUpdate(
+        { userId: followingId },
+        { $inc: { "stats.followersCount": delta } },
+        { upsert: false },
+      );
+
+      // Обновляем массив following для подписчика
+      if (action === "add") {
+        await this.userProfileReplicaModel.findOneAndUpdate(
+          { userId: followerId },
+          { $addToSet: { following: followingId } },
+          { upsert: false },
+        );
+      } else {
+        await this.userProfileReplicaModel.findOneAndUpdate(
+          { userId: followerId },
+          { $pull: { following: followingId } },
+          { upsert: false },
+        );
+      }
+
+      this.logger.log(
+        `[SYNC] Follow stats updated: followerId=${followerId}, followingId=${followingId}, action=${action}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[SYNC] Failed to update follow stats: followerId=${followerId}, followingId=${followingId}, error=${getErrorMessage(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Получение профиля пользователя из локальной реплики по userId
+   */
+  async getProfileReplicaByUserId(
+    userId: string,
+  ): Promise<IUserProfile | null> {
+    try {
+      const replica = await this.userProfileReplicaModel.findOne({ userId });
+      if (!replica) {
+        return null;
+      }
+
+      return {
+        userId: replica.userId,
+        username: replica.username,
+        displayName: replica.displayName,
+        bio: replica.bio,
+        avatarUrl: replica.avatarUrl,
+        coverImageUrl: replica.coverImageUrl,
+        location: replica.location,
+        genres: replica.genres,
+        instruments: replica.instruments,
+        socialLinks: replica.socialLinks,
+        stats: replica.stats,
+        preferences: replica.preferences,
+        role: replica.role,
+        following: replica.following,
+        createdAt: replica.createdAt,
+        updatedAt: replica.updatedAt,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to get profile replica by userId: ${userId}, error=${getErrorMessage(error)}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Получение профиля пользователя из локальной реплики по username
+   */
+  async getProfileReplicaByUsername(
+    username: string,
+  ): Promise<IUserProfile | null> {
+    try {
+      const replica = await this.userProfileReplicaModel.findOne({ username });
+      if (!replica) {
+        return null;
+      }
+
+      return {
+        userId: replica.userId,
+        username: replica.username,
+        displayName: replica.displayName,
+        bio: replica.bio,
+        avatarUrl: replica.avatarUrl,
+        coverImageUrl: replica.coverImageUrl,
+        location: replica.location,
+        genres: replica.genres,
+        instruments: replica.instruments,
+        socialLinks: replica.socialLinks,
+        stats: replica.stats,
+        preferences: replica.preferences,
+        role: replica.role,
+        following: replica.following,
+        createdAt: replica.createdAt,
+        updatedAt: replica.updatedAt,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to get profile replica by username: ${username}, error=${getErrorMessage(error)}`,
+      );
+      return null;
     }
   }
 }

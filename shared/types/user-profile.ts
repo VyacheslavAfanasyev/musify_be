@@ -1,3 +1,5 @@
+import { UserRole } from "./user";
+
 export interface IUserProfile {
   _id?: string;
   userId: string; // UUID из PostgreSQL
@@ -25,7 +27,7 @@ export interface IUserProfile {
     showOnlineStatus: boolean;
     privateProfile: boolean;
   };
-  role: "musician" | "listener" | "admin";
+  role: UserRole;
   following: string[]; // Массив userId пользователей, на которых подписан
   createdAt?: Date;
   updatedAt?: Date;
@@ -34,7 +36,7 @@ export interface IUserProfile {
 export interface ICreateUserProfileDto {
   userId: string;
   username: string;
-  role?: "musician" | "listener" | "admin";
+  role?: UserRole;
   displayName?: string;
   bio?: string;
   avatarUrl?: string;
