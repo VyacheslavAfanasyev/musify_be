@@ -17,6 +17,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { AppService } from './app.service';
+import { CircuitBreakerService } from './circuit-breaker.service';
 
 // Тип для загруженного файла
 type UploadedFileType = {
@@ -38,7 +39,10 @@ import type {
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly circuitBreakerService: CircuitBreakerService,
+  ) {}
 
   @Get()
   getHello(): string {
@@ -386,5 +390,16 @@ export class AppController {
       };
     }
     return await this.appService.getUserFeed(userId);
+  }
+
+  /**
+   * Endpoint для мониторинга состояния Circuit Breakers
+   */
+  @Get('health/circuit-breakers')
+  getCircuitBreakerStates() {
+    return {
+      success: true,
+      circuitBreakers: this.circuitBreakerService.getAllCircuitBreakerStates(),
+    };
   }
 }

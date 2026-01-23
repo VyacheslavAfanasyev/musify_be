@@ -4,6 +4,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { CircuitBreakerService } from './circuit-breaker.service';
 import { ThrottlerBehindProxyGuard } from './throttler-behind-proxy.guard';
 
 @Module({
@@ -96,6 +97,7 @@ import { ThrottlerBehindProxyGuard } from './throttler-behind-proxy.guard';
   controllers: [AppController],
   providers: [
     AppService,
+    CircuitBreakerService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerBehindProxyGuard,

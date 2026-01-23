@@ -19,6 +19,7 @@ import type {
   IRefreshResponse,
   IUpdateUserProfileDto,
 } from '@app/shared';
+import { CircuitBreakerService } from './circuit-breaker.service';
 
 @Injectable()
 export class AppService {
@@ -27,95 +28,98 @@ export class AppService {
     @Inject('USER_SERVICE') private readonly userClient: ClientProxy,
     @Inject('MEDIA_SERVICE') private readonly mediaClient: ClientProxy,
     @Inject('SOCIAL_SERVICE') private readonly socialClient: ClientProxy,
+    private readonly circuitBreakerService: CircuitBreakerService,
   ) {}
 
   getHello(): string {
     return 'Hello World from GATEAWAY!';
   }
 
+  /**
+   * Отправляет запрос к Auth Service через Circuit Breaker
+   */
   private async sendToAuthService<TResponse, TInput = unknown>(
     cmd: string,
     payload: TInput,
+    fallback?: () => Promise<TResponse> | TResponse,
   ): Promise<TResponse> {
-    const observable = this.authClient.send<TResponse, TInput>(
-      { cmd },
+    return this.circuitBreakerService.executeWithCircuitBreaker(
+      'AUTH_SERVICE',
+      this.authClient,
+      cmd,
       payload,
-    ) as unknown as Observable<TResponse>;
-    return await firstValueFrom(
-      observable.pipe(
-        timeout(10000), // 10 секунд таймаут
-        catchError((error) => {
-          if (error.name === 'TimeoutError') {
-            return throwError(() => new Error(`Auth Service timeout: ${cmd}`));
-          }
-          return throwError(() => error);
-        }),
-      ),
+      {
+        timeout: 10000, // 10 секунд таймаут
+        errorThresholdPercentage: 50, // 50% ошибок
+        resetTimeout: 30000, // 30 секунд до попытки восстановления
+      },
+      fallback,
     );
   }
 
+  /**
+   * Отправляет запрос к User Service через Circuit Breaker
+   */
   private async sendToUserService<TResponse, TInput = unknown>(
     cmd: string,
     payload: TInput,
+    fallback?: () => Promise<TResponse> | TResponse,
   ): Promise<TResponse> {
-    const observable = this.userClient.send<TResponse, TInput>(
-      { cmd },
+    return this.circuitBreakerService.executeWithCircuitBreaker(
+      'USER_SERVICE',
+      this.userClient,
+      cmd,
       payload,
-    ) as unknown as Observable<TResponse>;
-    return await firstValueFrom(
-      observable.pipe(
-        timeout(10000), // 10 секунд таймаут
-        catchError((error) => {
-          if (error.name === 'TimeoutError') {
-            return throwError(() => new Error(`User Service timeout: ${cmd}`));
-          }
-          return throwError(() => error);
-        }),
-      ),
+      {
+        timeout: 10000, // 10 секунд таймаут
+        errorThresholdPercentage: 50, // 50% ошибок
+        resetTimeout: 30000, // 30 секунд до попытки восстановления
+      },
+      fallback,
     );
   }
 
+  /**
+   * Отправляет запрос к Media Service через Circuit Breaker
+   */
   private async sendToMediaService<TResponse, TInput = unknown>(
     cmd: string,
     payload: TInput,
+    fallback?: () => Promise<TResponse> | TResponse,
   ): Promise<TResponse> {
-    const observable = this.mediaClient.send<TResponse, TInput>(
-      { cmd },
+    return this.circuitBreakerService.executeWithCircuitBreaker(
+      'MEDIA_SERVICE',
+      this.mediaClient,
+      cmd,
       payload,
-    ) as unknown as Observable<TResponse>;
-    return await firstValueFrom(
-      observable.pipe(
-        timeout(30000), // 30 секунд таймаут для загрузки файлов
-        catchError((error) => {
-          if (error.name === 'TimeoutError') {
-            return throwError(() => new Error(`Media Service timeout: ${cmd}`));
-          }
-          return throwError(() => error);
-        }),
-      ),
+      {
+        timeout: 30000, // 30 секунд таймаут для загрузки файлов
+        errorThresholdPercentage: 50, // 50% ошибок
+        resetTimeout: 30000, // 30 секунд до попытки восстановления
+      },
+      fallback,
     );
   }
 
+  /**
+   * Отправляет запрос к Social Service через Circuit Breaker
+   */
   private async sendToSocialService<TResponse, TInput = unknown>(
     cmd: string,
     payload: TInput,
+    fallback?: () => Promise<TResponse> | TResponse,
   ): Promise<TResponse> {
-    const observable = this.socialClient.send<TResponse, TInput>(
-      { cmd },
+    return this.circuitBreakerService.executeWithCircuitBreaker(
+      'SOCIAL_SERVICE',
+      this.socialClient,
+      cmd,
       payload,
-    ) as unknown as Observable<TResponse>;
-    return await firstValueFrom(
-      observable.pipe(
-        timeout(10000), // 10 секунд таймаут
-        catchError((error) => {
-          if (error.name === 'TimeoutError') {
-            return throwError(
-              () => new Error(`Social Service timeout: ${cmd}`),
-            );
-          }
-          return throwError(() => error);
-        }),
-      ),
+      {
+        timeout: 10000, // 10 секунд таймаут
+        errorThresholdPercentage: 50, // 50% ошибок
+        resetTimeout: 30000, // 30 секунд до попытки восстановления
+      },
+      fallback,
     );
   }
 
@@ -182,11 +186,22 @@ export class AppService {
     return this.sendToAuthService<IRegisterResponse, ICreateUserDto>(
       'register',
       registerDto,
+      () => ({
+        success: false,
+        error: 'Auth Service is temporarily unavailable. Please try again later.',
+      } as IRegisterResponse),
     );
   }
 
   async login(loginDto: ILoginDto): Promise<ILoginResponse> {
-    return this.sendToAuthService<ILoginResponse, ILoginDto>('login', loginDto);
+    return this.sendToAuthService<ILoginResponse, ILoginDto>(
+      'login',
+      loginDto,
+      () => ({
+        success: false,
+        error: 'Auth Service is temporarily unavailable. Please try again later.',
+      } as ILoginResponse),
+    );
   }
 
   async refresh(refreshTokenDto: IRefreshTokenDto): Promise<IRefreshResponse> {
@@ -221,7 +236,14 @@ export class AppService {
       return await this.sendToUserService<
         { success: true; user: any } | { success: false; error: string },
         { userId: string }
-      >('getUserProfile', { userId });
+      >(
+        'getUserProfile',
+        { userId },
+        () => ({
+          success: false,
+          error: 'User Service is temporarily unavailable. Please try again later.',
+        }),
+      );
     } catch (error) {
       return this.handleError(error);
     }
@@ -236,7 +258,14 @@ export class AppService {
       return await this.sendToUserService<
         { success: true; user: any } | { success: false; error: string },
         { username: string }
-      >('getUserProfileByUsername', { username });
+      >(
+        'getUserProfileByUsername',
+        { username },
+        () => ({
+          success: false,
+          error: 'User Service is temporarily unavailable. Please try again later.',
+        }),
+      );
     } catch (error) {
       return this.handleError(error);
     }
@@ -571,7 +600,14 @@ export class AppService {
       return await this.sendToSocialService<
         { success: true; profile: any } | { success: false; error: string },
         { username: string; viewerId?: string }
-      >('getPublicProfile', { username, viewerId });
+      >(
+        'getPublicProfile',
+        { username, viewerId },
+        () => ({
+          success: false,
+          error: 'Social Service is temporarily unavailable. Please try again later.',
+        }),
+      );
     } catch (error) {
       return this.handleError(error);
     }
@@ -585,7 +621,14 @@ export class AppService {
       return await this.sendToSocialService<
         { success: true; feed: any[] } | { success: false; error: string },
         { userId: string }
-      >('getUserFeed', { userId });
+      >(
+        'getUserFeed',
+        { userId },
+        () => ({
+          success: false,
+          error: 'Social Service is temporarily unavailable. Please try again later.',
+        }),
+      );
     } catch (error) {
       return this.handleError(error);
     }
