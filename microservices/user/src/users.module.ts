@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { CacheModule } from "@nestjs/cache-manager";
 import { MongooseModule } from "@nestjs/mongoose";
+import { ClientsModule, Transport } from "@nestjs/microservices";
 import { redisStore } from "cache-manager-redis-yet";
 import { UsersService } from "./users.service";
 import { UserProfile, UserProfileSchema } from "@app/shared";
@@ -43,6 +44,28 @@ import { UserProfile, UserProfileSchema } from "@app/shared";
         };
       },
     }),
+    // Клиент для Auth Service (для получения email)
+    ClientsModule.registerAsync([
+      {
+        name: "AUTH_SERVICE",
+        useFactory: () => {
+          const rabbitmqUrl =
+            process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";
+          const queue = process.env.AUTH_QUEUE || "auth_queue";
+
+          return {
+            transport: Transport.RMQ,
+            options: {
+              urls: [rabbitmqUrl],
+              queue,
+              queueOptions: {
+                durable: true,
+              },
+            },
+          };
+        },
+      },
+    ]),
   ],
   providers: [UsersService],
   exports: [UsersService],

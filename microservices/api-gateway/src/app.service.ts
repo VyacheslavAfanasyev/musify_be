@@ -214,51 +214,14 @@ export class AppService {
 
   /**
    * Получение полного профиля пользователя
-   * Объединяет данные из Auth Service (базовые данные) и User Service (профиль)
+   * Перенаправляет запрос в User Service, который сам агрегирует данные
    */
   async getUserProfile(userId: string) {
     try {
-      // Получаем базовые данные из Auth Service
-      const authResult = await this.sendToAuthService<{
-        success: boolean;
-        user?: { id: string; email: string };
-        error?: string;
-      }>('getUserById', { id: userId });
-
-      if (!authResult.success || !authResult.user) {
-        return {
-          success: false,
-          error: authResult.error || 'User not found',
-        };
-      }
-
-      // Получаем профиль из User Service
-      const profileResult = await this.sendToUserService<{
-        success: boolean;
-        profile?: any;
-        error?: string;
-      }>('getProfileByUserId', { userId });
-
-      if (!profileResult.success || !profileResult.profile) {
-        return {
-          success: false,
-          error: 'User profile not found',
-        };
-      }
-
-      // Объединяем данные
-      const profile = profileResult.profile.toObject
-        ? profileResult.profile.toObject()
-        : profileResult.profile;
-
-      return {
-        success: true,
-        user: {
-          id: authResult.user.id,
-          email: authResult.user.email,
-          ...profile,
-        },
-      };
+      return await this.sendToUserService<
+        { success: true; user: any } | { success: false; error: string },
+        { userId: string }
+      >('getUserProfile', { userId });
     } catch (error) {
       return this.handleError(error);
     }
@@ -266,43 +229,14 @@ export class AppService {
 
   /**
    * Получение профиля по username
+   * Перенаправляет запрос в User Service, который сам агрегирует данные
    */
   async getUserProfileByUsername(username: string) {
     try {
-      const profileResult = await this.sendToUserService<{
-        success: boolean;
-        profile?: any;
-        error?: string;
-      }>('getProfileByUsername', { username });
-
-      if (!profileResult.success || !profileResult.profile) {
-        return {
-          success: false,
-          error: profileResult.error || 'Profile not found',
-        };
-      }
-
-      const profile = profileResult.profile.toObject
-        ? profileResult.profile.toObject()
-        : profileResult.profile;
-
-      // Получаем email из Auth Service
-      const authResult = await this.sendToAuthService<{
-        success: boolean;
-        user?: { id: string; email: string };
-        error?: string;
-      }>('getUserById', { id: profile.userId });
-
-      return {
-        success: true,
-        user: {
-          ...profile,
-          email:
-            authResult.success && authResult.user
-              ? authResult.user.email
-              : undefined,
-        },
-      };
+      return await this.sendToUserService<
+        { success: true; user: any } | { success: false; error: string },
+        { username: string }
+      >('getUserProfileByUsername', { username });
     } catch (error) {
       return this.handleError(error);
     }

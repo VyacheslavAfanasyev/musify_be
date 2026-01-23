@@ -3,6 +3,8 @@ import { InjectModel } from "@nestjs/mongoose";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { Model } from "mongoose";
+import { ClientProxy } from "@nestjs/microservices";
+import { firstValueFrom, timeout, catchError, throwError } from "rxjs";
 import {
   ICreateUserProfileDto,
   IUpdateUserProfileDto,
@@ -15,11 +17,13 @@ import {
 @Injectable()
 export class UsersService {
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 минут в миллисекундах
+  private readonly EMAIL_CACHE_TTL = 10 * 60 * 1000; // 10 минут для email
 
   constructor(
     @InjectModel(UserProfile.name)
     private userProfileModel: Model<UserProfileDocument>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject("AUTH_SERVICE") private readonly authClient: ClientProxy,
   ) {}
 
   async createProfile(
@@ -693,6 +697,195 @@ export class UsersService {
     } catch (error) {
       // Логируем ошибку, но не прерываем выполнение
       console.error("[CACHE ERROR] Error invalidating profile cache:", error);
+    }
+  }
+
+  /**
+   * Получение email пользователя из кэша или Auth Service
+   */
+  private async getUserEmail(
+    userId: string,
+  ): Promise<
+    { success: true; email: string } | { success: false; error?: string }
+  > {
+    try {
+      // Пытаемся получить из кэша
+      const cacheKey = `user:email:${userId}`;
+      const cachedEmail = await this.cacheManager.get<string>(cacheKey);
+
+      if (cachedEmail) {
+        console.log(`[CACHE HIT] Email found in cache for userId: ${userId}`);
+        return {
+          success: true,
+          email: cachedEmail,
+        };
+      }
+
+      console.log(
+        `[CACHE MISS] Email not in cache, fetching from Auth Service for userId: ${userId}`,
+      );
+
+      // Если нет в кэше, запрашиваем из Auth Service
+      const authResult = await firstValueFrom(
+        this.authClient
+          .send<{
+            success: boolean;
+            user?: { id: string; email: string };
+            error?: string;
+          }>({ cmd: "getUserById" }, { id: userId })
+          .pipe(
+            timeout(10000), // 10 секунд таймаут
+            catchError((error) => {
+              if (error.name === "TimeoutError") {
+                return throwError(
+                  () => new Error("Auth Service timeout: getUserById"),
+                );
+              }
+              return throwError(() => error);
+            }),
+          ),
+      );
+
+      if (authResult.success && authResult.user) {
+        // Кэшируем email
+        await this.cacheManager.set(
+          cacheKey,
+          authResult.user.email,
+          this.EMAIL_CACHE_TTL,
+        );
+        return {
+          success: true,
+          email: authResult.user.email,
+        };
+      }
+
+      return {
+        success: false,
+        error: authResult.error || "User not found",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: getErrorMessage(error, "Failed to get user email"),
+      };
+    }
+  }
+
+  /**
+   * Кэширование email пользователя
+   */
+  async cacheUserEmail(userId: string, email: string): Promise<void> {
+    try {
+      const cacheKey = `user:email:${userId}`;
+      await this.cacheManager.set(cacheKey, email, this.EMAIL_CACHE_TTL);
+      console.log(`[CACHE] Email cached successfully for userId: ${userId}`);
+    } catch (error) {
+      console.error("[CACHE ERROR] Error caching email:", error);
+    }
+  }
+
+  /**
+   * Получение полного профиля пользователя с email (агрегация данных)
+   * Этот метод заменяет агрегацию в API Gateway
+   */
+  async getUserProfile(
+    userId: string,
+  ): Promise<{ success: true; user: any } | { success: false; error: string }> {
+    try {
+      // Получаем профиль из User Service
+      const profileResult = await this.getProfileByUserId(userId);
+
+      if (profileResult.success === false) {
+        return {
+          success: false,
+          error: profileResult.error || "User profile not found",
+        };
+      }
+
+      if (!profileResult.profile) {
+        return {
+          success: false,
+          error: "User profile not found",
+        };
+      }
+
+      // Получаем email из кэша или Auth Service
+      const emailResult = await this.getUserEmail(userId);
+
+      // Объединяем данные
+      const profile = profileResult.profile.toObject
+        ? profileResult.profile.toObject()
+        : profileResult.profile;
+
+      return {
+        success: true,
+        user: {
+          id: userId,
+          email: emailResult.success ? emailResult.email : undefined,
+          ...profile,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: getErrorMessage(error, "Failed to get user profile"),
+      };
+    }
+  }
+
+  /**
+   * Получение профиля по username с email (агрегация данных)
+   * Этот метод заменяет агрегацию в API Gateway
+   */
+  async getUserProfileByUsername(
+    username: string,
+  ): Promise<{ success: true; user: any } | { success: false; error: string }> {
+    try {
+      // Получаем профиль из User Service
+      const profileResult = await this.getProfileByUsername(username);
+
+      if (profileResult.success === false) {
+        return {
+          success: false,
+          error: profileResult.error || "Profile not found",
+        };
+      }
+
+      if (!profileResult.profile) {
+        return {
+          success: false,
+          error: "Profile not found",
+        };
+      }
+
+      const profile = profileResult.profile.toObject
+        ? profileResult.profile.toObject()
+        : profileResult.profile;
+
+      const userId = profile.userId || profile._id?.toString();
+
+      if (!userId) {
+        return {
+          success: false,
+          error: "User ID not found in profile",
+        };
+      }
+
+      // Получаем email из кэша или Auth Service
+      const emailResult = await this.getUserEmail(userId);
+
+      return {
+        success: true,
+        user: {
+          ...profile,
+          email: emailResult.success ? emailResult.email : undefined,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: getErrorMessage(error, "Failed to get user profile by username"),
+      };
     }
   }
 }

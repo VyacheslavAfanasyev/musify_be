@@ -16,10 +16,10 @@ export class UserController {
    * Обработка события создания пользователя (Event-Driven)
    * Это событие отправляется после успешного создания профиля через Saga Pattern
    * Используется для уведомления других сервисов о создании пользователя
-   * Профиль уже создан синхронно, поэтому здесь просто логируем событие
+   * Профиль уже создан синхронно, поэтому здесь кэшируем email для агрегации данных
    */
   @EventPattern("user.created")
-  handleUserCreated(
+  async handleUserCreated(
     @Payload()
     data: {
       userId: string;
@@ -31,9 +31,8 @@ export class UserController {
     console.log(
       `[EVENT] user.created received: ${data.userId} (profile already created via Saga Pattern)`,
     );
-    // Профиль уже создан синхронно через Saga Pattern в auth service
-    // Это событие используется для уведомления других сервисов о создании пользователя
-    // В будущем здесь можно добавить логику для других сервисов (например, отправка welcome email)
+    // Кэшируем email для использования в методах агрегации данных
+    await this.usersService.cacheUserEmail(data.userId, data.email);
   }
 
   /**
@@ -248,6 +247,40 @@ export class UserController {
   @MessagePattern({ cmd: "getProfileByUsername" })
   async getProfileByUsername(@Payload() payload: { username: string }) {
     return await this.usersService.getProfileByUsername(payload.username);
+  }
+
+  /**
+   * Получение полного профиля пользователя с email (агрегация данных)
+   * Заменяет агрегацию в API Gateway
+   */
+  @MessagePattern({ cmd: "getUserProfile" })
+  async getUserProfile(@Payload() payload: { userId: string }) {
+    try {
+      return await this.usersService.getUserProfile(payload.userId);
+    } catch (error) {
+      console.error("Error in getUserProfile:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  /**
+   * Получение профиля по username с email (агрегация данных)
+   * Заменяет агрегацию в API Gateway
+   */
+  @MessagePattern({ cmd: "getUserProfileByUsername" })
+  async getUserProfileByUsername(@Payload() payload: { username: string }) {
+    try {
+      return await this.usersService.getUserProfileByUsername(payload.username);
+    } catch (error) {
+      console.error("Error in getUserProfileByUsername:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
   }
 
   /**
