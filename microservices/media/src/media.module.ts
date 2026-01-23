@@ -28,7 +28,7 @@ import { MediaFile, MediaFileSchema } from "@app/shared";
     ]),
     // Настройка Redis кэширования
     CacheModule.registerAsync({
-      isGlobal: false,
+      isGlobal: true,
       useFactory: async () => {
         const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
         const url = new URL(redisUrl);
