@@ -73,6 +73,11 @@ services:
       - "6379:6379"
     volumes:
       - redis_auth_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis_user:
     image: redis:7-alpine
@@ -80,6 +85,11 @@ services:
       - "6380:6379"
     volumes:
       - redis_user_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis_media:
     image: redis:7-alpine
@@ -87,6 +97,11 @@ services:
       - "6381:6379"
     volumes:
       - redis_media_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis_social:
     image: redis:7-alpine
@@ -94,6 +109,11 @@ services:
       - "6382:6379"
     volumes:
       - redis_social_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   rabbitmq: # Для межсервисного общения
     image: rabbitmq:3-management-alpine
@@ -129,7 +149,7 @@ services:
       postgres_auth:
         condition: service_healthy
       redis_auth:
-        condition: service_started
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       user:
@@ -165,7 +185,7 @@ services:
       mongodb_user:
         condition: service_healthy
       redis_user:
-        condition: service_started
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
     environment:
@@ -199,7 +219,7 @@ services:
       mongodb_media:
         condition: service_healthy
       redis_media:
-        condition: service_started
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       user:
@@ -236,7 +256,7 @@ services:
       mongodb_social:
         condition: service_healthy
       redis_social:
-        condition: service_started
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       user:

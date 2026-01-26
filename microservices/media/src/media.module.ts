@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { CacheModule } from "@nestjs/cache-manager";
 import { MongooseModule } from "@nestjs/mongoose";
 import { ClientsModule, Transport } from "@nestjs/microservices";
+import { TerminusModule } from "@nestjs/terminus";
 import { redisStore } from "cache-manager-redis-yet";
 import { MediaService } from "./media.service";
 import { StorageService } from "./storage.service";
@@ -9,6 +10,7 @@ import { MediaFile, MediaFileSchema } from "@app/shared";
 
 @Module({
   imports: [
+    TerminusModule,
     // Подключение к MongoDB
     MongooseModule.forRoot(
       process.env.MONGODB_URL ||

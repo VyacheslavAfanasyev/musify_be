@@ -2,14 +2,18 @@ import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ClientsModule, Transport } from "@nestjs/microservices";
+import { TerminusModule } from "@nestjs/terminus";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { RedisTokenService } from "./redis-token.service";
 import { SagaService } from "./saga.service";
+import { HealthController } from "./health.controller";
+import { RabbitMQHealthIndicator } from "./rabbitmq-health.indicator";
 import { AuthUser } from "@app/shared";
 
 @Module({
   imports: [
+    TerminusModule,
     // Подключение к PostgreSQL для Auth Service
     TypeOrmModule.forRoot({
       type: "postgres",
@@ -88,7 +92,12 @@ import { AuthUser } from "@app/shared";
       },
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService, RedisTokenService, SagaService],
+  controllers: [AuthController, HealthController],
+  providers: [
+    AuthService,
+    RedisTokenService,
+    SagaService,
+    RabbitMQHealthIndicator,
+  ],
 })
 export class AuthModule {}

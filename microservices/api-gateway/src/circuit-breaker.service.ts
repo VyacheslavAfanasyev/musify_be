@@ -47,6 +47,9 @@ export class CircuitBreakerService {
     // CircuitBreaker создается с функцией, которая принимает payload как параметр
     const circuitBreaker = new CircuitBreaker(
       async (payload: any): Promise<any> => {
+        this.logger.debug(
+          `Отправка запроса к ${serviceName}:${cmd} с payload: ${JSON.stringify(payload)}`,
+        );
         const observable = client.send<any, any>(
           { cmd },
           payload,
@@ -56,6 +59,9 @@ export class CircuitBreakerService {
           observable.pipe(
             timeout(defaultOptions.timeout || 10000),
             catchError((error) => {
+              this.logger.error(
+                `Ошибка при запросе к ${serviceName}:${cmd}: ${error.message}`,
+              );
               if (error.name === 'TimeoutError') {
                 return throwError(
                   () => new Error(`${serviceName} timeout: ${cmd}`),

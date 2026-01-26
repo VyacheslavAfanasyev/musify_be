@@ -29,6 +29,18 @@ export class RedisTokenService implements OnModuleInit, OnModuleDestroy {
     await this.redisClient.quit();
   }
 
+  /**
+   * Проверка здоровья Redis соединения
+   */
+  async ping(): Promise<boolean> {
+    try {
+      const result = await this.redisClient.ping();
+      return result === "PONG";
+    } catch (_error) {
+      return false;
+    }
+  }
+
   async saveRefreshToken(
     userId: string,
     refreshToken: string,

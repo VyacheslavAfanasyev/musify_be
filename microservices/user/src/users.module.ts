@@ -2,12 +2,14 @@ import { Module } from "@nestjs/common";
 import { CacheModule } from "@nestjs/cache-manager";
 import { MongooseModule } from "@nestjs/mongoose";
 import { ClientsModule, Transport } from "@nestjs/microservices";
+import { TerminusModule } from "@nestjs/terminus";
 import { redisStore } from "cache-manager-redis-yet";
 import { UsersService } from "./users.service";
 import { UserProfile, UserProfileSchema } from "@app/shared";
 
 @Module({
   imports: [
+    TerminusModule,
     // Подключение к MongoDB с таймаутами
     MongooseModule.forRoot(
       process.env.MONGODB_URL ||
@@ -27,7 +29,7 @@ import { UserProfile, UserProfileSchema } from "@app/shared";
     ]),
     // Настройка Redis кэширования
     CacheModule.registerAsync({
-      isGlobal: false,
+      isGlobal: true,
       useFactory: async () => {
         const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
         // Парсим URL Redis

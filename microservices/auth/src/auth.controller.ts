@@ -1,4 +1,4 @@
-import { Controller } from "@nestjs/common";
+import { Controller, Logger } from "@nestjs/common";
 import { MessagePattern, Payload } from "@nestjs/microservices";
 import { AuthService } from "./auth.service";
 import type {
@@ -11,6 +11,8 @@ import type {
 
 @Controller()
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(private readonly authService: AuthService) {}
 
   @MessagePattern({ cmd: "getHello" })
@@ -20,11 +22,15 @@ export class AuthController {
 
   @MessagePattern({ cmd: "register" })
   register(@Payload() createUserDto: ICreateUserDto) {
+    this.logger.log(
+      `Received register request: ${JSON.stringify(createUserDto)}`,
+    );
     return this.authService.register(createUserDto);
   }
 
   @MessagePattern({ cmd: "login" })
   login(@Payload() loginDto: ILoginDto) {
+    this.logger.log(`Received login request: ${JSON.stringify(loginDto)}`);
     return this.authService.login(loginDto);
   }
 

@@ -1,14 +1,18 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { TerminusModule } from '@nestjs/terminus';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CircuitBreakerService } from './circuit-breaker.service';
 import { ThrottlerBehindProxyGuard } from './throttler-behind-proxy.guard';
+import { HealthController } from './health.controller';
+import { RabbitMQHealthIndicator } from './rabbitmq-health.indicator';
 
 @Module({
   imports: [
+    TerminusModule,
     ThrottlerModule.forRoot([
       {
         ttl: 60000, // 1 минута
@@ -31,6 +35,10 @@ import { ThrottlerBehindProxyGuard } from './throttler-behind-proxy.guard';
               queueOptions: {
                 durable: true,
               },
+              socketOptions: {
+                heartbeatIntervalInSeconds: 60,
+                reconnectTimeInSeconds: 5,
+              },
             },
           };
         },
@@ -49,6 +57,10 @@ import { ThrottlerBehindProxyGuard } from './throttler-behind-proxy.guard';
               queue,
               queueOptions: {
                 durable: true,
+              },
+              socketOptions: {
+                heartbeatIntervalInSeconds: 60,
+                reconnectTimeInSeconds: 5,
               },
             },
           };
@@ -69,6 +81,10 @@ import { ThrottlerBehindProxyGuard } from './throttler-behind-proxy.guard';
               queueOptions: {
                 durable: true,
               },
+              socketOptions: {
+                heartbeatIntervalInSeconds: 60,
+                reconnectTimeInSeconds: 5,
+              },
             },
           };
         },
@@ -88,16 +104,21 @@ import { ThrottlerBehindProxyGuard } from './throttler-behind-proxy.guard';
               queueOptions: {
                 durable: true,
               },
+              socketOptions: {
+                heartbeatIntervalInSeconds: 60,
+                reconnectTimeInSeconds: 5,
+              },
             },
           };
         },
       },
     ]),
   ],
-  controllers: [AppController],
+  controllers: [AppController, HealthController],
   providers: [
     AppService,
     CircuitBreakerService,
+    RabbitMQHealthIndicator,
     {
       provide: APP_GUARD,
       useClass: ThrottlerBehindProxyGuard,
