@@ -57,6 +57,26 @@ export class MediaController {
     return await this.mediaService.deleteFile(payload.fileId);
   }
 
+  /**
+   * Компенсирующее действие для удаления файла (используется в Saga Pattern)
+   * Удаляет файл с диска и из БД при откате операции
+   */
+  @MessagePattern({ cmd: "compensateDeleteFile" })
+  async compensateDeleteFile(
+    @Payload() payload: { fileId: string; sagaId?: string },
+  ) {
+    try {
+      const result = await this.mediaService.deleteFile(payload.fileId);
+      return { success: true, result };
+    } catch (error) {
+      console.error("Error in compensateDeleteFile:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
   @MessagePattern({ cmd: "getTrackById" })
   async getTrackById(
     @Payload()

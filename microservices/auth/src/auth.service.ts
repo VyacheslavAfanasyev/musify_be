@@ -1,6 +1,6 @@
 import { Injectable, Inject } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { ClientProxy, EventPattern } from "@nestjs/microservices";
+import { ClientProxy } from "@nestjs/microservices";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { firstValueFrom, timeout, catchError, throwError } from "rxjs";
@@ -12,9 +12,13 @@ import {
   IChangePasswordDto,
   ILogoutDto,
   getErrorMessage,
+  SagaType,
+  ISagaStep,
 } from "@app/shared";
+import type { ISaga } from "@app/shared/types/saga";
 import { AuthUser } from "@app/shared";
 import { RedisTokenService } from "./redis-token.service";
+import { SagaService } from "./saga.service";
 
 @Injectable()
 export class AuthService {
@@ -24,6 +28,7 @@ export class AuthService {
     @Inject("USER_SERVICE") private readonly userClient: ClientProxy,
     private readonly jwtService: JwtService,
     private readonly redisTokenService: RedisTokenService,
+    private readonly sagaService: SagaService,
   ) {}
 
   getHello(): string {
@@ -32,9 +37,10 @@ export class AuthService {
 
   /**
    * Регистрация пользователя с паттерном Saga
-   * 1. Создаем пользователя в PostgreSQL (auth_db - база данных Auth Service)
-   * 2. Отправляем событие в User Service для создания профиля (user_db - база данных User Service)
-   * 3. Если профиль не создался - откатываем изменения
+   * Использует Saga Service для управления компенсирующими транзакциями
+   * 1. Создаем пользователя в PostgreSQL (auth_db)
+   * 2. Создаем профиль в User Service (user_db)
+   * 3. При ошибке выполняется автоматическая компенсация
    */
   async register(createUserDto: ICreateUserDto) {
     try {
@@ -72,27 +78,69 @@ export class AuthService {
         };
       }
 
-      // 1. Создаем пользователя в PostgreSQL (auth_db)
+      // Подготавливаем данные для саги
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(
         createUserDto.password,
         saltRounds,
       );
 
-      const authUser = this.authUserRepository.create({
-        email: createUserDto.email,
-        password: hashedPassword,
-      });
+      const username = createUserDto.username.trim();
+      const role = createUserDto.role || "listener";
 
-      const savedUser = await this.authUserRepository.save(authUser);
+      // Создаем шаги саги для компенсации
+      let savedUser: AuthUser;
+      let saga: ISaga | null = null;
 
-      // 2. Создаем профиль в User Service синхронно (Saga Pattern)
       try {
-        // Дополнительная проверка перед отправкой
-        if (!createUserDto.username || createUserDto.username.trim() === "") {
-          throw new Error("Username is required and cannot be empty");
-        }
+        // Шаг 1: Создаем пользователя в auth_db
+        const authUser = this.authUserRepository.create({
+          email: createUserDto.email,
+          password: hashedPassword,
+        });
 
+        savedUser = await this.authUserRepository.save(authUser);
+
+        // Создаем сагу для управления компенсацией
+        const sagaSteps: ISagaStep[] = [
+          {
+            stepId: "create-auth-user",
+            service: "auth",
+            action: "createAuthUser",
+            status: "completed" as any,
+            data: {
+              userId: savedUser.id,
+            },
+            result: { userId: savedUser.id },
+            compensation: {
+              action: "deleteAuthUser",
+              data: {
+                userId: savedUser.id,
+              },
+            },
+          },
+          {
+            stepId: "create-user-profile",
+            service: "user",
+            action: "createProfile",
+            status: "pending" as any,
+            data: {
+              userId: savedUser.id,
+              username,
+              role,
+            },
+            compensation: {
+              action: "deleteProfile",
+              data: {
+                userId: savedUser.id,
+              },
+            },
+          },
+        ];
+
+        saga = this.sagaService.createSaga(SagaType.USER_CREATION, sagaSteps);
+
+        // Шаг 2: Создаем профиль в user_db
         const profileResult = await firstValueFrom(
           this.userClient
             .send<{
@@ -103,14 +151,13 @@ export class AuthService {
               { cmd: "createProfile" },
               {
                 userId: savedUser.id,
-                username: createUserDto.username.trim(),
-                role: createUserDto.role || "listener",
+                username,
+                role,
               },
             )
             .pipe(
-              timeout(10000), // Таймаут 10 секунд
+              timeout(10000),
               catchError((error) => {
-                console.error("Error in createProfile pipe:", error);
                 if (error.name === "TimeoutError") {
                   return throwError(
                     () => new Error("User Service timeout: createProfile"),
@@ -122,34 +169,27 @@ export class AuthService {
         );
 
         if (!profileResult.success) {
-          await this.authUserRepository.delete(savedUser.id);
-          // Пытаемся удалить профиль через User Service (user_db), если он был создан частично
-          try {
-            await firstValueFrom(
-              this.userClient
-                .send<{
-                  success: boolean;
-                }>({ cmd: "deleteProfile" }, { userId: savedUser.id })
-                .pipe(timeout(5000)),
-            );
-          } catch (deleteError) {
-            console.error(
-              "Failed to delete profile during rollback:",
-              deleteError,
-            );
+          // Компенсируем через Saga Service
+          if (saga) {
+            saga.steps[0].status = "completed" as any;
+            await this.sagaService.executeSaga(saga.sagaId);
+          } else {
+            // Fallback: прямая компенсация
+            await this.authUserRepository.delete(savedUser.id);
           }
+
           return {
             success: false,
             error: profileResult.error || "Failed to create user profile",
           };
         }
 
-        // Отправляем событие о создании пользователя
+        // Все шаги выполнены успешно - отправляем событие
         this.userClient.emit("user.created", {
           userId: savedUser.id,
           email: savedUser.email,
-          username: createUserDto.username.trim(),
-          role: createUserDto.role || "listener",
+          username,
+          role,
         });
 
         const { password: _password, ...userWithoutPassword } = savedUser;
@@ -162,28 +202,33 @@ export class AuthService {
           },
         };
       } catch (error) {
-        // Если не удалось создать профиль, откатываем
-        console.error("Failed to create profile, error:", error);
-        try {
-          await this.authUserRepository.delete(savedUser.id);
-          // Пытаемся удалить профиль через User Service (user_db), если он был создан частично
+        // Выполняем компенсацию через Saga Service
+        if (saga && savedUser) {
           try {
-            await firstValueFrom(
-              this.userClient
-                .send<{
-                  success: boolean;
-                }>({ cmd: "deleteProfile" }, { userId: savedUser.id })
-                .pipe(timeout(5000)),
-            );
+            await this.sagaService.executeSaga(saga.sagaId);
+          } catch (_compensationError) {
+            // Fallback: прямая компенсация
+            try {
+              await this.authUserRepository.delete(savedUser.id);
+            } catch (deleteError) {
+              console.error(
+                "Failed to delete user during compensation:",
+                deleteError,
+              );
+            }
+          }
+        } else if (savedUser) {
+          // Если сага не создана, выполняем прямую компенсацию
+          try {
+            await this.authUserRepository.delete(savedUser.id);
           } catch (deleteError) {
             console.error(
-              "Failed to delete profile during rollback:",
+              "Failed to delete user during compensation:",
               deleteError,
             );
           }
-        } catch (rollbackError) {
-          console.error("Failed to rollback user:", rollbackError);
         }
+
         return {
           success: false,
           error: getErrorMessage(error, "Failed to create user profile"),

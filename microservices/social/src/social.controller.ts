@@ -182,4 +182,50 @@ export class SocialController {
       "remove",
     );
   }
+
+  /**
+   * Компенсирующее действие для удаления подписки (используется в Saga Pattern)
+   */
+  @MessagePattern({ cmd: "compensateUnfollow" })
+  async compensateUnfollow(
+    @Payload()
+    payload: {
+      followerId: string;
+      followingId: string;
+      sagaId?: string;
+    },
+  ) {
+    try {
+      const result = await this.socialService.unfollowUser(
+        payload.followerId,
+        payload.followingId,
+      );
+      return { success: true, result };
+    } catch (error) {
+      console.error("Error in compensateUnfollow:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  /**
+   * Компенсирующее действие для удаления реплики профиля (используется в Saga Pattern)
+   */
+  @MessagePattern({ cmd: "compensateDeleteProfileReplica" })
+  async compensateDeleteProfileReplica(
+    @Payload() payload: { userId: string; sagaId?: string },
+  ) {
+    try {
+      await this.socialService.deleteUserProfileReplica(payload.userId);
+      return { success: true };
+    } catch (error) {
+      console.error("Error in compensateDeleteProfileReplica:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
 }

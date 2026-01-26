@@ -101,61 +101,94 @@ export class MediaService {
       );
 
       // Сохраняем файл на диск (передаем Buffer)
-      const filePath = await this.storageService.saveFile(
-        {
-          ...file,
-          buffer: fileBuffer,
-        },
-        fileName,
-        type,
-      );
+      let filePath: string;
+      try {
+        filePath = await this.storageService.saveFile(
+          {
+            ...file,
+            buffer: fileBuffer,
+          },
+          fileName,
+          type,
+        );
+      } catch (error) {
+        this.logger.error(`Failed to save file to disk: ${error}`);
+        return {
+          success: false,
+          error: getErrorMessage(error, "Failed to save file to disk"),
+        };
+      }
 
       // Получаем метаданные для изображений и аудио
       let metadata: IMediaFile["metadata"] = {};
-      if (type === "avatar" && file.mimetype.startsWith("image/")) {
-        const imageMetadata =
-          await this.storageService.getImageMetadata(fileBuffer);
-        metadata = {
-          width: imageMetadata.width,
-          height: imageMetadata.height,
-          format: imageMetadata.format,
-        };
-      } else if (type === "cover" && file.mimetype.startsWith("image/")) {
-        const imageMetadata =
-          await this.storageService.getImageMetadata(fileBuffer);
-        metadata = {
-          width: imageMetadata.width,
-          height: imageMetadata.height,
-          format: imageMetadata.format,
-        };
-      } else if (type === "track" && file.mimetype.startsWith("audio/")) {
-        const audioMetadata =
-          await this.storageService.getAudioMetadata(fileBuffer);
-        metadata = {
-          duration: audioMetadata.duration,
-          bitrate: audioMetadata.bitrate,
-          format: audioMetadata.format,
-        };
+      try {
+        if (type === "avatar" && file.mimetype.startsWith("image/")) {
+          const imageMetadata =
+            await this.storageService.getImageMetadata(fileBuffer);
+          metadata = {
+            width: imageMetadata.width,
+            height: imageMetadata.height,
+            format: imageMetadata.format,
+          };
+        } else if (type === "cover" && file.mimetype.startsWith("image/")) {
+          const imageMetadata =
+            await this.storageService.getImageMetadata(fileBuffer);
+          metadata = {
+            width: imageMetadata.width,
+            height: imageMetadata.height,
+            format: imageMetadata.format,
+          };
+        } else if (type === "track" && file.mimetype.startsWith("audio/")) {
+          const audioMetadata =
+            await this.storageService.getAudioMetadata(fileBuffer);
+          metadata = {
+            duration: audioMetadata.duration,
+            bitrate: audioMetadata.bitrate,
+            format: audioMetadata.format,
+          };
+        }
+      } catch (error) {
+        // Если не удалось получить метаданные, продолжаем без них
+        this.logger.warn(`Failed to get metadata for file: ${error}`);
       }
 
       // Генерируем URL
       const url = this.storageService.generateFileUrl(fileId);
 
       // Сохраняем метаданные в MongoDB (media_db)
-      const mediaFile = new this.mediaFileModel({
-        fileId,
-        userId,
-        type,
-        originalName: file.originalname,
-        fileName,
-        mimeType: file.mimetype,
-        size: file.size,
-        path: filePath,
-        url,
-        metadata,
-      });
+      let savedFile: MediaFileDocument;
+      try {
+        const mediaFile = new this.mediaFileModel({
+          fileId,
+          userId,
+          type,
+          originalName: file.originalname,
+          fileName,
+          mimeType: file.mimetype,
+          size: file.size,
+          path: filePath,
+          url,
+          metadata,
+        });
 
-      const savedFile = await mediaFile.save();
+        savedFile = await mediaFile.save();
+      } catch (error) {
+        // Компенсация: удаляем файл с диска, если не удалось сохранить в БД
+        this.logger.error(
+          `Failed to save file to database, compensating by deleting file from disk: ${error}`,
+        );
+        try {
+          await this.storageService.deleteFile(filePath);
+        } catch (deleteError) {
+          this.logger.error(
+            `Failed to delete file during compensation: ${deleteError}`,
+          );
+        }
+        return {
+          success: false,
+          error: getErrorMessage(error, "Failed to save file to database"),
+        };
+      }
 
       // Отправляем события о загрузке файла (Event-Driven)
       if (type === "avatar") {

@@ -5,6 +5,7 @@ import { ClientsModule, Transport } from "@nestjs/microservices";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { RedisTokenService } from "./redis-token.service";
+import { SagaService } from "./saga.service";
 import { AuthUser } from "@app/shared";
 
 @Module({
@@ -20,7 +21,7 @@ import { AuthUser } from "@app/shared";
       logging: process.env.NODE_ENV === "development",
     }),
     TypeOrmModule.forFeature([AuthUser]),
-    // Клиент для отправки событий в User Service
+    // Клиенты для отправки событий в другие сервисы
     ClientsModule.registerAsync([
       {
         name: "USER_SERVICE",
@@ -28,6 +29,44 @@ import { AuthUser } from "@app/shared";
           const rabbitmqUrl =
             process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";
           const queue = process.env.USER_QUEUE || "user_queue";
+
+          return {
+            transport: Transport.RMQ,
+            options: {
+              urls: [rabbitmqUrl],
+              queue,
+              queueOptions: {
+                durable: true,
+              },
+            },
+          };
+        },
+      },
+      {
+        name: "MEDIA_SERVICE",
+        useFactory: () => {
+          const rabbitmqUrl =
+            process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";
+          const queue = process.env.MEDIA_QUEUE || "media_queue";
+
+          return {
+            transport: Transport.RMQ,
+            options: {
+              urls: [rabbitmqUrl],
+              queue,
+              queueOptions: {
+                durable: true,
+              },
+            },
+          };
+        },
+      },
+      {
+        name: "SOCIAL_SERVICE",
+        useFactory: () => {
+          const rabbitmqUrl =
+            process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";
+          const queue = process.env.SOCIAL_QUEUE || "social_queue";
 
           return {
             transport: Transport.RMQ,
@@ -50,6 +89,6 @@ import { AuthUser } from "@app/shared";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, RedisTokenService],
+  providers: [AuthService, RedisTokenService, SagaService],
 })
 export class AuthModule {}

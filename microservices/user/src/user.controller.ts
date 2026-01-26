@@ -231,6 +231,25 @@ export class UserController {
     await this.usersService.deleteProfile(data.userId);
   }
 
+  /**
+   * Компенсирующее действие для удаления профиля (используется в Saga Pattern)
+   */
+  @MessagePattern({ cmd: "deleteProfile" })
+  async compensateDeleteProfile(
+    @Payload() payload: { userId: string; sagaId?: string },
+  ) {
+    try {
+      const result = await this.usersService.deleteProfile(payload.userId);
+      return { success: true, result };
+    } catch (error) {
+      console.error("Error in compensateDeleteProfile:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
   @MessagePattern({ cmd: "getProfileByUserId" })
   async getProfileByUserId(@Payload() payload: { userId: string }) {
     try {
