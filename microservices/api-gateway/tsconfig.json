@@ -13,10 +13,14 @@
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
+    "paths": {
+      "@app/shared": ["../../shared/index.ts"],
+      "@app/shared/*": ["../../shared/*"]
+    },
     "incremental": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "typeRoots": ["./node_modules/@types"]
+    "typeRoots": ["./node_modules/@types", "./shared/node_modules/@types"]
   },
   "include": ["src/**/*", "test/**/*", "../../shared/**/*", "./shared/**/*"]
 }

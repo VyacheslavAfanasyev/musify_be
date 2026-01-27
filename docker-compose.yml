@@ -126,6 +126,21 @@ services:
       timeout: 5s
       retries: 5
 
+  jaeger: # Distributed Tracing
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "14268:14268" # Jaeger collector HTTP
+      - "6831:6831/udp" # Jaeger agent UDP
+      - "6832:6832/udp" # Jaeger agent UDP
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Микросервисы
   auth:
     build:
@@ -145,12 +160,15 @@ services:
       - ./shared:/app/shared
       # Исключаем node_modules из монтирования (используем из образа)
       - /app/node_modules
+      - /app/shared/node_modules
     depends_on:
       postgres_auth:
         condition: service_healthy
       redis_auth:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      jaeger:
         condition: service_healthy
       user:
         condition: service_started
@@ -161,6 +179,9 @@ services:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - AUTH_QUEUE=auth_queue
       - USER_QUEUE=user_queue
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
     restart: unless-stopped
 
   user:
@@ -181,6 +202,7 @@ services:
       - ./shared:/app/shared
       # Исключаем node_modules из монтирования (используем из образа)
       - /app/node_modules
+      - /app/shared/node_modules
     depends_on:
       mongodb_user:
         condition: service_healthy
@@ -188,12 +210,17 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      jaeger:
+        condition: service_healthy
     environment:
       - NODE_ENV=development
       - MONGODB_URL=mongodb://root:secret@mongodb_user:27017/user_db?authSource=admin
       - REDIS_URL=redis://redis_user:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - USER_QUEUE=user_queue
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
     restart: unless-stopped
 
   media:
@@ -214,6 +241,7 @@ services:
       - ./shared:/app/shared
       # Исключаем node_modules из монтирования (используем из образа)
       - /app/node_modules
+      - /app/shared/node_modules
       - uploads_volume:/app/uploads
     depends_on:
       mongodb_media:
@@ -221,6 +249,8 @@ services:
       redis_media:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      jaeger:
         condition: service_healthy
       user:
         condition: service_started
@@ -232,6 +262,9 @@ services:
       - MEDIA_QUEUE=media_queue
       - USER_QUEUE=user_queue
       - UPLOAD_DIR=/app/uploads
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
     restart: unless-stopped
 
   social:
@@ -252,12 +285,15 @@ services:
       - ./shared:/app/shared
       # Исключаем node_modules из монтирования (используем из образа)
       - /app/node_modules
+      - /app/shared/node_modules
     depends_on:
       mongodb_social:
         condition: service_healthy
       redis_social:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      jaeger:
         condition: service_healthy
       user:
         condition: service_started
@@ -268,6 +304,9 @@ services:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - SOCIAL_QUEUE=social_queue
       - USER_QUEUE=user_queue
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
     restart: unless-stopped
 
   api-gateway:
@@ -288,8 +327,11 @@ services:
       - ./shared:/app/shared
       # Исключаем node_modules из монтирования (используем из образа)
       - /app/node_modules
+      - /app/shared/node_modules
     depends_on:
       rabbitmq:
+        condition: service_healthy
+      jaeger:
         condition: service_healthy
       auth:
         condition: service_started
@@ -304,6 +346,9 @@ services:
       - USER_QUEUE=user_queue
       - MEDIA_QUEUE=media_queue
       - SOCIAL_QUEUE=social_queue
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
     restart: unless-stopped
 
 volumes:

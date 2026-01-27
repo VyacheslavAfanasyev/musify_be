@@ -1,6 +1,11 @@
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { MicroserviceOptions, Transport } from "@nestjs/microservices";
+import { initializeTracing } from "@app/shared";
+
+// Инициализируем трейсинг ДО создания приложения
+const sdk = initializeTracing("user");
+sdk.start();
 
 async function bootstrap() {
   // Создаем гибридное приложение: HTTP для health checks + RabbitMQ для микросервисов
@@ -31,4 +36,14 @@ async function bootstrap() {
   await app.startAllMicroservices();
   console.log(`User Service is listening on RabbitMQ queue: ${queue}`);
 }
+
+// Обработка завершения приложения
+process.on("SIGTERM", () => {
+  sdk
+    .shutdown()
+    .then(() => console.log("Tracing terminated"))
+    .catch((error) => console.log("Error terminating tracing", error))
+    .finally(() => process.exit(0));
+});
+
 void bootstrap();

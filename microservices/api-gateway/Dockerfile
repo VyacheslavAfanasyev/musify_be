@@ -9,13 +9,16 @@ COPY shared ./shared
 # Создаем структуру директорий для правильного разрешения пути file:../../shared
 RUN mkdir -p ../.. && ln -sf /app/shared ../../shared || true
 
+# Устанавливаем зависимости shared пакета
+RUN cd shared && npm install --legacy-peer-deps
+
 # Копируем файлы зависимостей сервиса
 COPY microservices/api-gateway/package*.json ./
 COPY microservices/api-gateway/tsconfig*.json ./
 COPY microservices/api-gateway/nest-cli.json ./
 
 # Устанавливаем зависимости (используем npm install для локальных пакетов)
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Копируем исходный код сервиса
 COPY microservices/api-gateway/src ./src
@@ -34,13 +37,16 @@ COPY shared ./shared
 # Создаем структуру директорий для правильного разрешения пути file:../../shared
 RUN mkdir -p ../.. && ln -sf /app/shared ../../shared || true
 
+# Устанавливаем зависимости shared пакета
+RUN cd shared && npm install --legacy-peer-deps
+
 # Копируем файлы конфигурации и зависимости
 COPY microservices/api-gateway/package*.json ./
 COPY microservices/api-gateway/tsconfig*.json ./
 COPY microservices/api-gateway/nest-cli.json ./
 
 # Устанавливаем все зависимости (включая devDependencies для HMR)
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Открываем порт
 EXPOSE 3000
@@ -58,6 +64,9 @@ COPY shared ./shared
 
 # Создаем структуру директорий для правильного разрешения пути file:../../shared
 RUN mkdir -p ../.. && ln -sf /app/shared ../../shared || true
+
+# Устанавливаем зависимости shared пакета
+RUN cd shared && npm install --legacy-peer-deps
 
 # Копируем package.json сервиса
 COPY microservices/api-gateway/package*.json ./

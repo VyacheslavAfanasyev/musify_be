@@ -9,7 +9,14 @@
   "dependencies": {
     "typeorm": "^0.3.20",
     "@nestjs/mongoose": "^11.0.0",
-    "mongoose": "^8.8.4"
+    "mongoose": "^8.8.4",
+    "@opentelemetry/core": "^2.5.0",
+    "@opentelemetry/sdk-node": "^0.211.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.69.0",
+    "@opentelemetry/resources": "^2.5.0",
+    "@opentelemetry/semantic-conventions": "^1.39.0",
+    "@opentelemetry/exporter-jaeger": "^2.5.0",
+    "@opentelemetry/sdk-trace-base": "^2.5.0"
   },
   "devDependencies": {}
 }
