@@ -141,6 +141,75 @@ services:
       timeout: 5s
       retries: 5
 
+  # Централизованное логирование
+  loki: # Loki для сбора логов
+    image: grafana/loki:2.9.0
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3100/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  promtail: # Promtail для отправки логов в Loki
+    image: grafana/promtail:2.9.0
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  # Метрики
+  prometheus: # Prometheus для сбора метрик
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Визуализация
+  grafana: # Grafana для визуализации логов и метрик
+    image: grafana/grafana:latest
+    ports:
+      - "3005:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+      - loki
+      - jaeger
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Микросервисы
   auth:
     build:
@@ -174,6 +243,7 @@ services:
         condition: service_started
     environment:
       - NODE_ENV=development
+      - SERVICE_NAME=auth
       - DATABASE_URL=postgresql://auth_user:secret@postgres_auth:5432/auth_db
       - REDIS_URL=redis://redis_auth:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
@@ -214,6 +284,7 @@ services:
         condition: service_healthy
     environment:
       - NODE_ENV=development
+      - SERVICE_NAME=user
       - MONGODB_URL=mongodb://root:secret@mongodb_user:27017/user_db?authSource=admin
       - REDIS_URL=redis://redis_user:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
@@ -256,6 +327,7 @@ services:
         condition: service_started
     environment:
       - NODE_ENV=development
+      - SERVICE_NAME=media
       - MONGODB_URL=mongodb://root:secret@mongodb_media:27017/media_db?authSource=admin
       - REDIS_URL=redis://redis_media:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
@@ -299,6 +371,7 @@ services:
         condition: service_started
     environment:
       - NODE_ENV=development
+      - SERVICE_NAME=social
       - MONGODB_URL=mongodb://root:secret@mongodb_social:27017/social_db?authSource=admin
       - REDIS_URL=redis://redis_social:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
@@ -341,6 +414,7 @@ services:
         condition: service_started
     environment:
       - NODE_ENV=development
+      - SERVICE_NAME=api-gateway
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - AUTH_QUEUE=auth_queue
       - USER_QUEUE=user_queue
@@ -361,3 +435,6 @@ volumes:
   redis_media_data:
   redis_social_data:
   uploads_volume:
+  loki_data:
+  prometheus_data:
+  grafana_data:

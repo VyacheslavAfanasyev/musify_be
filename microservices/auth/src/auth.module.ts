@@ -8,8 +8,9 @@ import { AuthService } from "./auth.service";
 import { RedisTokenService } from "./redis-token.service";
 import { SagaService } from "./saga.service";
 import { HealthController } from "./health.controller";
+import { MetricsController } from "./metrics.controller";
 import { RabbitMQHealthIndicator } from "./rabbitmq-health.indicator";
-import { AuthUser } from "@app/shared";
+import { AuthUser, PrometheusService } from "@app/shared";
 
 @Module({
   imports: [
@@ -92,12 +93,18 @@ import { AuthUser } from "@app/shared";
       },
     }),
   ],
-  controllers: [AuthController, HealthController],
+  controllers: [AuthController, HealthController, MetricsController],
   providers: [
     AuthService,
     RedisTokenService,
     SagaService,
     RabbitMQHealthIndicator,
+    {
+      provide: PrometheusService,
+      useFactory: () => {
+        return new PrometheusService(process.env.SERVICE_NAME || "auth");
+      },
+    },
   ],
 })
 export class AuthModule {}
