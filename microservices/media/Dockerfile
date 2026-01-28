@@ -9,6 +9,9 @@ COPY shared ./shared
 # Создаем структуру директорий для правильного разрешения пути file:../../shared
 RUN mkdir -p ../.. && ln -sf /app/shared ../../shared || true
 
+# Устанавливаем зависимости shared пакета сначала
+RUN cd shared && npm install --legacy-peer-deps
+
 # Копируем файлы зависимостей сервиса
 COPY microservices/media/package*.json ./
 COPY microservices/media/tsconfig*.json ./
@@ -36,6 +39,9 @@ COPY shared ./shared
 
 # Создаем структуру директорий для правильного разрешения пути file:../../shared
 RUN mkdir -p ../.. && ln -sf /app/shared ../../shared || true
+
+# Устанавливаем зависимости shared пакета сначала
+RUN cd shared && npm install --legacy-peer-deps
 
 # Копируем файлы конфигурации и зависимости
 COPY microservices/media/package*.json ./

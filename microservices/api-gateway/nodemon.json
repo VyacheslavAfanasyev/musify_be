@@ -4,7 +4,8 @@
   "ignore": ["src/**/*.spec.ts"],
   "exec": "ts-node -r tsconfig-paths/register src/main.ts",
   "env": {
-    "NODE_ENV": "development"
+    "NODE_ENV": "development",
+    "NODE_PATH": "/app/shared/node_modules:/app/node_modules"
   },
   "legacyWatch": true,
   "polling": true,

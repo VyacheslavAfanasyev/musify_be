@@ -21,8 +21,8 @@ export class HealthController {
       // Проверка RabbitMQ
       () => this.rabbitmq.isHealthy('rabbitmq'),
       // Проверка памяти
-      () => this.memory.checkHeap('memory_heap', 200 * 1024 * 1024), // 200MB
-      () => this.memory.checkRSS('memory_rss', 400 * 1024 * 1024), // 400MB
+      () => this.memory.checkHeap('memory_heap', 400 * 1024 * 1024), // 400MB
+      () => this.memory.checkRSS('memory_rss', 600 * 1024 * 1024), // 600MB
     ]);
   }
 }

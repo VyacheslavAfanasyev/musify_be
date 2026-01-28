@@ -43,6 +43,7 @@
     "cache-manager-redis-yet": "^5.1.5",
     "mongoose": "^8.8.4",
     "music-metadata": "^11.10.6",
+    "prom-client": "^15.1.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sharp": "^0.33.5",

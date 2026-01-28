@@ -8,7 +8,9 @@ import { AppService } from './app.service';
 import { CircuitBreakerService } from './circuit-breaker.service';
 import { ThrottlerBehindProxyGuard } from './throttler-behind-proxy.guard';
 import { HealthController } from './health.controller';
+import { MetricsController } from './metrics.controller';
 import { RabbitMQHealthIndicator } from './rabbitmq-health.indicator';
+import { PrometheusService } from '@app/shared';
 
 @Module({
   imports: [
@@ -114,11 +116,17 @@ import { RabbitMQHealthIndicator } from './rabbitmq-health.indicator';
       },
     ]),
   ],
-  controllers: [AppController, HealthController],
+  controllers: [AppController, HealthController, MetricsController],
   providers: [
     AppService,
     CircuitBreakerService,
     RabbitMQHealthIndicator,
+    {
+      provide: PrometheusService,
+      useFactory: () => {
+        return new PrometheusService(process.env.SERVICE_NAME || 'api-gateway');
+      },
+    },
     {
       provide: APP_GUARD,
       useClass: ThrottlerBehindProxyGuard,
