@@ -1,11 +1,29 @@
 {
   "name": "@app/shared",
   "version": "1.0.0",
-  "description": "Shared for PET backend",
+  "description": "Shared types, entities, schemas, and utilities for PET backend microservices",
   "main": "./index.ts",
   "types": "./index.ts",
   "private": true,
-  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "."
+  },
+  "keywords": [
+    "nestjs",
+    "microservices",
+    "shared",
+    "types",
+    "entities"
+  ],
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "version:patch": "npm version patch --no-git-tag-version",
+    "version:minor": "npm version minor --no-git-tag-version",
+    "version:major": "npm version major --no-git-tag-version",
+    "version:show": "node -p \"require('./package.json').version\""
+  },
   "dependencies": {
     "typeorm": "^0.3.20",
     "@nestjs/mongoose": "^11.0.0",

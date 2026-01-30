@@ -9,7 +9,11 @@
     "start:all": "docker-compose up --build",
     "dev:all": "concurrently \"npm run dev --workspace=auth\" \"npm run dev --workspace=user\" \"npm run dev --workspace=media-service\" \"npm run dev --workspace=template\"",
     "build:all": "npm run build --workspaces",
-    "prepare": "husky"
+    "prepare": "husky",
+    "shared:version": "cd shared && npm run version:show",
+    "shared:version:patch": "cd shared && npm run version:patch",
+    "shared:version:minor": "cd shared && npm run version:minor",
+    "shared:version:major": "cd shared && npm run version:major"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
