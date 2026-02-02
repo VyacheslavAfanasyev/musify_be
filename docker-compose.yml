@@ -126,8 +126,20 @@ services:
       timeout: 5s
       retries: 5
 
+  consul: # Service Discovery
+    image: hashicorp/consul:1.17
+    ports:
+      - "8500:8500" # HTTP API
+      - "8600:8600/udp" # DNS
+    command: consul agent -dev -client=0.0.0.0 -ui
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8500/v1/status/leader"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   jaeger: # Distributed Tracing
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:1.50
     ports:
       - "16686:16686" # Jaeger UI
       - "14268:14268" # Jaeger collector HTTP
@@ -168,7 +180,7 @@ services:
 
   # Метрики
   prometheus: # Prometheus для сбора метрик
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.48.0
     ports:
       - "9090:9090"
     volumes:
@@ -189,7 +201,7 @@ services:
 
   # Визуализация
   grafana: # Grafana для визуализации логов и метрик
-    image: grafana/grafana:latest
+    image: grafana/grafana:10.2.0
     ports:
       - "3005:3000"
     environment:
@@ -239,16 +251,21 @@ services:
         condition: service_healthy
       jaeger:
         condition: service_healthy
+      consul:
+        condition: service_healthy
       user:
         condition: service_started
     environment:
       - NODE_ENV=development
       - SERVICE_NAME=auth
+      - SERVICE_ADDRESS=auth
       - DATABASE_URL=postgresql://auth_user:secret@postgres_auth:5432/auth_db
       - REDIS_URL=redis://redis_auth:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - AUTH_QUEUE=auth_queue
       - USER_QUEUE=user_queue
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
       - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
       - JAEGER_AGENT_HOST=jaeger
       - JAEGER_AGENT_PORT=6831
@@ -282,13 +299,18 @@ services:
         condition: service_healthy
       jaeger:
         condition: service_healthy
+      consul:
+        condition: service_healthy
     environment:
       - NODE_ENV=development
       - SERVICE_NAME=user
+      - SERVICE_ADDRESS=user
       - MONGODB_URL=mongodb://root:secret@mongodb_user:27017/user_db?authSource=admin
       - REDIS_URL=redis://redis_user:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - USER_QUEUE=user_queue
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
       - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
       - JAEGER_AGENT_HOST=jaeger
       - JAEGER_AGENT_PORT=6831
@@ -323,17 +345,22 @@ services:
         condition: service_healthy
       jaeger:
         condition: service_healthy
+      consul:
+        condition: service_healthy
       user:
         condition: service_started
     environment:
       - NODE_ENV=development
       - SERVICE_NAME=media
+      - SERVICE_ADDRESS=media
       - MONGODB_URL=mongodb://root:secret@mongodb_media:27017/media_db?authSource=admin
       - REDIS_URL=redis://redis_media:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - MEDIA_QUEUE=media_queue
       - USER_QUEUE=user_queue
       - UPLOAD_DIR=/app/uploads
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
       - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
       - JAEGER_AGENT_HOST=jaeger
       - JAEGER_AGENT_PORT=6831
@@ -367,16 +394,21 @@ services:
         condition: service_healthy
       jaeger:
         condition: service_healthy
+      consul:
+        condition: service_healthy
       user:
         condition: service_started
     environment:
       - NODE_ENV=development
       - SERVICE_NAME=social
+      - SERVICE_ADDRESS=social
       - MONGODB_URL=mongodb://root:secret@mongodb_social:27017/social_db?authSource=admin
       - REDIS_URL=redis://redis_social:6379
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - SOCIAL_QUEUE=social_queue
       - USER_QUEUE=user_queue
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
       - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
       - JAEGER_AGENT_HOST=jaeger
       - JAEGER_AGENT_PORT=6831
@@ -406,6 +438,8 @@ services:
         condition: service_healthy
       jaeger:
         condition: service_healthy
+      consul:
+        condition: service_healthy
       auth:
         condition: service_started
       media:
@@ -415,11 +449,14 @@ services:
     environment:
       - NODE_ENV=development
       - SERVICE_NAME=api-gateway
+      - SERVICE_ADDRESS=api-gateway
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - AUTH_QUEUE=auth_queue
       - USER_QUEUE=user_queue
       - MEDIA_QUEUE=media_queue
       - SOCIAL_QUEUE=social_queue
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
       - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
       - JAEGER_AGENT_HOST=jaeger
       - JAEGER_AGENT_PORT=6831

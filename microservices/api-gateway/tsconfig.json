@@ -20,7 +20,8 @@
     "incremental": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "typeRoots": ["./node_modules/@types", "./shared/node_modules/@types"]
+    "typeRoots": ["./node_modules/@types", "../../shared/node_modules/@types"],
+    "rootDirs": [".", "../../shared"]
   },
   "include": ["src/**/*", "test/**/*", "../../shared/**/*", "./shared/**/*"]
 }

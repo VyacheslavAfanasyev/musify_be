@@ -64,9 +64,9 @@ export class HealthController {
       },
       // Проверка RabbitMQ
       () => this.rabbitmq.isHealthy("rabbitmq"),
-      // Проверка памяти
-      () => this.memory.checkHeap("memory_heap", 150 * 1024 * 1024), // 150MB
-      () => this.memory.checkRSS("memory_rss", 300 * 1024 * 1024), // 300MB
+      // Проверка памяти (увеличенные лимиты для media сервиса, работающего с файлами)
+      () => this.memory.checkHeap("memory_heap", 500 * 1024 * 1024), // 500MB
+      () => this.memory.checkRSS("memory_rss", 1024 * 1024 * 1024), // 1GB
     ]);
   }
 }
