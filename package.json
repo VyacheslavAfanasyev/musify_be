@@ -13,7 +13,12 @@
     "shared:version": "cd shared && npm run version:show",
     "shared:version:patch": "cd shared && npm run version:patch",
     "shared:version:minor": "cd shared && npm run version:minor",
-    "shared:version:major": "cd shared && npm run version:major"
+    "shared:version:major": "cd shared && npm run version:major",
+    "shared:build": "cd shared && npm run build",
+    "shared:publish": "cd shared && npm run publish:public",
+    "shared:publish:patch": "cd shared && npm run publish:patch",
+    "shared:publish:minor": "cd shared && npm run publish:minor",
+    "shared:publish:major": "cd shared && npm run publish:major"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

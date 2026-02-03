@@ -2,9 +2,13 @@
   "name": "@app/shared",
   "version": "1.0.0",
   "description": "Shared types, entities, schemas, and utilities for PET backend microservices",
-  "main": "./index.ts",
-  "types": "./index.ts",
-  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
   "repository": {
     "type": "git",
     "url": "."
@@ -19,10 +23,17 @@
   "author": "",
   "license": "MIT",
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build",
+    "prepack": "npm run build",
     "version:patch": "npm version patch --no-git-tag-version",
     "version:minor": "npm version minor --no-git-tag-version",
     "version:major": "npm version major --no-git-tag-version",
-    "version:show": "node -p \"require('./package.json').version\""
+    "version:show": "node -p \"require('./package.json').version\"",
+    "publish:public": "npm publish --access public",
+    "publish:patch": "npm run version:patch && npm run build && npm publish --access public",
+    "publish:minor": "npm run version:minor && npm run build && npm publish --access public",
+    "publish:major": "npm run version:major && npm run build && npm publish --access public"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.17",

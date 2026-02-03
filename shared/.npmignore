@@ -1,0 +1,38 @@
+# Source files
+*.ts
+!*.d.ts
+
+# Development files
+tsconfig.json
+tsconfig.build.json
+node_modules
+.npmignore
+
+# Documentation - README.md и CHANGELOG.md включены в пакет через "files" в package.json
+VERSIONING.md
+NPM_PUBLISH.md
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Build artifacts (source maps можно оставить для отладки)
+# *.map
+
+# Test files
+*.spec.ts
+*.test.ts
+test/
+tests/
+
+# CI/CD
+.github
+.gitlab-ci.yml
+
