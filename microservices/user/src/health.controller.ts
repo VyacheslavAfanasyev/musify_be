@@ -65,7 +65,7 @@ export class HealthController {
       },
       // Проверка RabbitMQ
       () => this.rabbitmq.isHealthy("rabbitmq"),
-      // Проверка памяти
+      // Проверка памяти (оптимизированные лимиты после оптимизации OpenTelemetry и пула соединений)
       () => this.memory.checkHeap("memory_heap", 400 * 1024 * 1024), // 400MB
       () => this.memory.checkRSS("memory_rss", 600 * 1024 * 1024), // 600MB
     ]);

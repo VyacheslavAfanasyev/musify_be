@@ -303,6 +303,7 @@ services:
         condition: service_healthy
     environment:
       - NODE_ENV=development
+      - NODE_OPTIONS=--max-old-space-size=512 --expose-gc
       - SERVICE_NAME=user
       - SERVICE_ADDRESS=user
       - MONGODB_URL=mongodb://root:secret@mongodb_user:27017/user_db?authSource=admin

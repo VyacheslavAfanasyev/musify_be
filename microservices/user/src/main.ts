@@ -10,6 +10,21 @@ sdk.start();
 let serviceDiscovery: ServiceDiscoveryService | null = null;
 
 async function bootstrap() {
+  // Периодическая сборка мусора для оптимизации памяти (каждые 5 минут)
+  if (typeof global.gc === "function") {
+    setInterval(
+      () => {
+        // global.gc доступен только при запуске с --expose-gc
+        (global as { gc?: () => void }).gc?.();
+        const memUsage = process.memoryUsage();
+        console.log(
+          `[GC] Memory after GC - Heap: ${Math.round(memUsage.heapUsed / 1024 / 1024)}MB / ${Math.round(memUsage.heapTotal / 1024 / 1024)}MB, RSS: ${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+        );
+      },
+      5 * 60 * 1000,
+    ); // 5 минут
+  }
+
   // Создаем гибридное приложение: HTTP для health checks + RabbitMQ для микросервисов
   const rabbitmqUrl =
     process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";

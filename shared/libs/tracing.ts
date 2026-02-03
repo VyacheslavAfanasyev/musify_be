@@ -31,8 +31,20 @@ export function initializeTracing(serviceName: string): NodeSDK {
     traceExporter: jaegerExporter,
     instrumentations: [
       getNodeAutoInstrumentations({
-        // Отключаем некоторые инструментации, которые могут конфликтовать
+        // Отключаем инструментации, которые могут конфликтовать или потреблять много памяти
         "@opentelemetry/instrumentation-fs": {
+          enabled: false,
+        },
+        // Отключаем HTTP инструментацию для внутренних запросов (уже есть в NestJS)
+        "@opentelemetry/instrumentation-http": {
+          enabled: false,
+        },
+        // Отключаем DNS инструментацию (не критично для трейсинга)
+        "@opentelemetry/instrumentation-dns": {
+          enabled: false,
+        },
+        // Отключаем net инструментацию (может быть избыточной)
+        "@opentelemetry/instrumentation-net": {
           enabled: false,
         },
       }),
