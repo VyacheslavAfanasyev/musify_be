@@ -611,7 +611,7 @@ Backend использует микросервисную архитектуру
 
 **DELETE** `/media/file/:fileId`
 
-Удаляет медиа файл.
+Удаляет любой медиа файл (изображения, аудио, видео и т.д.).
 
 **Path Parameters:**
 - `fileId` (string, required) - ID файла
@@ -622,6 +622,47 @@ Backend использует микросервисную архитектуру
   "success": true
 }
 ```
+
+**Response (404):**
+```json
+{
+  "success": false,
+  "error": "File not found"
+}
+```
+
+**Примечание:** При удалении трека автоматически обновляется счетчик треков пользователя (`tracksCount`).
+
+---
+
+### 3.9 Удалить трек (аудио файл)
+
+**DELETE** `/media/track/:trackId`
+
+Удаляет аудио трек. Является удобным алиасом для `/media/file/:fileId`, специально предназначенным для удаления треков.
+
+**Path Parameters:**
+- `trackId` (string, required) - ID трека (fileId)
+
+**Response (200 OK):**
+```json
+{
+  "success": true
+}
+```
+
+**Response (404):**
+```json
+{
+  "success": false,
+  "error": "File not found"
+}
+```
+
+**Примечание:** 
+- При удалении трека автоматически отправляется событие `media.track.deleted`, которое обновляет счетчик треков пользователя (`tracksCount`) в профиле.
+- Удаляется как файл с диска, так и запись из базы данных.
+- Инвалидируется кэш, связанный с этим треком.
 
 ---
 
@@ -985,6 +1026,34 @@ const result = await response.json();
 if (result.success) {
   console.log('Successfully followed user');
 }
+```
+
+### Пример: Удаление трека
+
+```javascript
+// Удаление трека через специальный эндпоинт
+const response = await fetch(`http://localhost:3000/media/track/${trackId}`, {
+  method: 'DELETE',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`
+  }
+});
+
+const result = await response.json();
+if (result.success) {
+  console.log('Track deleted successfully');
+  // Счетчик tracksCount в профиле пользователя автоматически обновится
+} else {
+  console.error('Error:', result.error);
+}
+
+// Альтернативный способ: удаление через общий эндпоинт
+const response2 = await fetch(`http://localhost:3000/media/file/${fileId}`, {
+  method: 'DELETE',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`
+  }
+});
 ```
 
 ---

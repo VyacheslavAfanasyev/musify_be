@@ -550,6 +550,20 @@ export class AppService {
   }
 
   /**
+   * Удаление трека (аудио файла)
+   */
+  async deleteTrack(trackId: string) {
+    try {
+      return await this.sendToMediaService<
+        { success: boolean; error?: string },
+        { fileId: string }
+      >('deleteFile', { fileId: trackId });
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * Подписка на пользователя
    */
   async followUser(followerId: string, followingId: string) {

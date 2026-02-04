@@ -315,6 +315,11 @@ export class AppController {
     return await this.appService.deleteFile(fileId);
   }
 
+  @Delete('media/track/:trackId')
+  async deleteTrack(@Param('trackId') trackId: string) {
+    return await this.appService.deleteTrack(trackId);
+  }
+
   @Post('social/follow/:userId')
   async followUser(
     @Param('userId') userId: string,
