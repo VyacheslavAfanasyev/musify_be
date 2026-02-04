@@ -101,6 +101,11 @@ export class AppController {
     return this.appService.getUserTracks(username);
   }
 
+  @Get('users/:username/audio-files')
+  getUserAudioFiles(@Param('username') username: string) {
+    return this.appService.getUserAudioFiles(username);
+  }
+
   @Get('users/:username/public')
   getUserPublicProfile(
     @Param('username') username: string,

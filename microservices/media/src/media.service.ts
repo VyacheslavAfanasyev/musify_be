@@ -227,6 +227,15 @@ export class MediaService {
         );
       }
 
+      // Инвалидируем кэш аудиофайлов при загрузке нового аудиофайла
+      if (file.mimetype.startsWith("audio/")) {
+        const audioFilesCacheKey = `audioFiles:${userId}`;
+        await this.cacheManager.del(audioFilesCacheKey);
+        this.logger.log(
+          `[CACHE] Invalidated audio files cache for userId: ${userId}`,
+        );
+      }
+
       // Возвращаем публичный ответ без внутреннего path
       const fileData: IMediaFileResponse = {
         fileId: savedFile.fileId,
@@ -497,6 +506,65 @@ export class MediaService {
   }
 
   /**
+   * Получение всех загруженных аудиофайлов пользователя
+   * Возвращает все файлы с mimeType, начинающимся с "audio/", независимо от типа файла
+   */
+  async getUserAudioFiles(
+    userId: string,
+  ): Promise<
+    | { success: true; audioFiles: IMediaFileResponse[] }
+    | { success: false; error: string }
+  > {
+    try {
+      // Проверяем кэш
+      const cacheKey = `audioFiles:${userId}`;
+      const cachedAudioFiles =
+        await this.cacheManager.get<IMediaFileResponse[]>(cacheKey);
+
+      if (cachedAudioFiles) {
+        this.logger.log(`[CACHE HIT] Audio files found in cache: ${userId}`);
+        return { success: true, audioFiles: cachedAudioFiles };
+      }
+
+      // Получаем все файлы пользователя с mimeType, начинающимся с "audio/"
+      const audioFiles: MediaFileDocument[] = await this.mediaFileModel
+        .find({
+          userId,
+          mimeType: { $regex: /^audio\//i },
+        })
+        .sort({ createdAt: -1 })
+        .exec();
+
+      // Возвращаем публичные данные без внутреннего path
+      const audioFilesData: IMediaFileResponse[] = audioFiles.map((file) => ({
+        fileId: file.fileId,
+        userId: file.userId,
+        type: file.type as IMediaFileResponse["type"],
+        originalName: file.originalName,
+        fileName: file.fileName,
+        mimeType: file.mimeType,
+        size: file.size,
+        url: file.url,
+        metadata: file.metadata,
+        createdAt: file.createdAt,
+        updatedAt: file.updatedAt,
+      }));
+
+      // Кэшируем результат
+      await this.cacheManager.set(cacheKey, audioFilesData, this.CACHE_TTL);
+      this.logger.log(`[CACHE SET] Audio files cached: ${userId}`);
+
+      return { success: true, audioFiles: audioFilesData };
+    } catch (error) {
+      this.logger.error(`Get user audio files error: ${error}`);
+      return {
+        success: false,
+        error: getErrorMessage(error, "Failed to get user audio files"),
+      };
+    }
+  }
+
+  /**
    * Получение обложки трека по ID трека
    */
   async getTrackCover(
@@ -574,6 +642,7 @@ export class MediaService {
       // Сохраняем данные файла перед удалением
       const fileType = file.type;
       const userId = file.userId;
+      const mimeType = file.mimeType;
 
       // Удаляем файл с диска
       await this.storageService.deleteFile(file.path);
@@ -582,7 +651,7 @@ export class MediaService {
       await this.mediaFileModel.deleteOne({ fileId });
 
       // Инвалидируем кэш
-      await this.invalidateFileCache(fileId, userId, fileType);
+      await this.invalidateFileCache(fileId, userId, fileType, mimeType);
 
       // Отправляем события об удалении файла (Event-Driven)
       if (fileType === "track") {
@@ -779,6 +848,7 @@ export class MediaService {
     fileId: string,
     userId: string,
     type: string,
+    mimeType?: string,
   ): Promise<void> {
     try {
       const keysToDelete = [`file:${fileId}`];
@@ -789,6 +859,11 @@ export class MediaService {
         keysToDelete.push(`tracks:${userId}`);
       } else if (type === "cover") {
         keysToDelete.push(`cover:${fileId}`);
+      }
+
+      // Если это аудиофайл (независимо от типа), инвалидируем кэш аудиофайлов
+      if (mimeType && mimeType.startsWith("audio/")) {
+        keysToDelete.push(`audioFiles:${userId}`);
       }
 
       await Promise.all(keysToDelete.map((key) => this.cacheManager.del(key)));

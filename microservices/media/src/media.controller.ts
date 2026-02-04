@@ -106,6 +106,11 @@ export class MediaController {
     return await this.mediaService.getUserTracks(payload.userId);
   }
 
+  @MessagePattern({ cmd: "getUserAudioFiles" })
+  async getUserAudioFiles(@Payload() payload: { userId: string }) {
+    return await this.mediaService.getUserAudioFiles(payload.userId);
+  }
+
   @MessagePattern({ cmd: "getTrackCover" })
   async getTrackCover(@Payload() payload: { trackId: string }) {
     const result = await this.mediaService.getTrackCover(payload.trackId);

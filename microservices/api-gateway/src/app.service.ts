@@ -186,10 +186,12 @@ export class AppService {
     return this.sendToAuthService<IRegisterResponse, ICreateUserDto>(
       'register',
       registerDto,
-      () => ({
-        success: false,
-        error: 'Auth Service is temporarily unavailable. Please try again later.',
-      } as IRegisterResponse),
+      () =>
+        ({
+          success: false,
+          error:
+            'Auth Service is temporarily unavailable. Please try again later.',
+        }) as IRegisterResponse,
     );
   }
 
@@ -197,10 +199,12 @@ export class AppService {
     return this.sendToAuthService<ILoginResponse, ILoginDto>(
       'login',
       loginDto,
-      () => ({
-        success: false,
-        error: 'Auth Service is temporarily unavailable. Please try again later.',
-      } as ILoginResponse),
+      () =>
+        ({
+          success: false,
+          error:
+            'Auth Service is temporarily unavailable. Please try again later.',
+        }) as ILoginResponse,
     );
   }
 
@@ -236,14 +240,11 @@ export class AppService {
       return await this.sendToUserService<
         { success: true; user: any } | { success: false; error: string },
         { userId: string }
-      >(
-        'getUserProfile',
-        { userId },
-        () => ({
-          success: false,
-          error: 'User Service is temporarily unavailable. Please try again later.',
-        }),
-      );
+      >('getUserProfile', { userId }, () => ({
+        success: false,
+        error:
+          'User Service is temporarily unavailable. Please try again later.',
+      }));
     } catch (error) {
       return this.handleError(error);
     }
@@ -258,14 +259,11 @@ export class AppService {
       return await this.sendToUserService<
         { success: true; user: any } | { success: false; error: string },
         { username: string }
-      >(
-        'getUserProfileByUsername',
-        { username },
-        () => ({
-          success: false,
-          error: 'User Service is temporarily unavailable. Please try again later.',
-        }),
-      );
+      >('getUserProfileByUsername', { username }, () => ({
+        success: false,
+        error:
+          'User Service is temporarily unavailable. Please try again later.',
+      }));
     } catch (error) {
       return this.handleError(error);
     }
@@ -481,6 +479,38 @@ export class AppService {
   }
 
   /**
+   * Получение всех аудиофайлов пользователя по username
+   */
+  async getUserAudioFiles(username: string) {
+    try {
+      // Сначала получаем userId по username
+      const profileResult = await this.sendToUserService<{
+        success: boolean;
+        profile?: any;
+        error?: string;
+      }>('getProfileByUsername', { username });
+
+      if (!profileResult.success || !profileResult.profile) {
+        return {
+          success: false,
+          error: profileResult.error || 'User not found',
+        };
+      }
+
+      const userId = profileResult.profile.userId || profileResult.profile._id;
+
+      // Получаем все аудиофайлы пользователя
+      return await this.sendToMediaService<
+        | { success: true; audioFiles: any[] }
+        | { success: false; error: string },
+        { userId: string }
+      >('getUserAudioFiles', { userId });
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
    * Получение обложки трека по ID трека
    */
   async getTrackCover(trackId: string) {
@@ -600,14 +630,11 @@ export class AppService {
       return await this.sendToSocialService<
         { success: true; profile: any } | { success: false; error: string },
         { username: string; viewerId?: string }
-      >(
-        'getPublicProfile',
-        { username, viewerId },
-        () => ({
-          success: false,
-          error: 'Social Service is temporarily unavailable. Please try again later.',
-        }),
-      );
+      >('getPublicProfile', { username, viewerId }, () => ({
+        success: false,
+        error:
+          'Social Service is temporarily unavailable. Please try again later.',
+      }));
     } catch (error) {
       return this.handleError(error);
     }
@@ -621,14 +648,11 @@ export class AppService {
       return await this.sendToSocialService<
         { success: true; feed: any[] } | { success: false; error: string },
         { userId: string }
-      >(
-        'getUserFeed',
-        { userId },
-        () => ({
-          success: false,
-          error: 'Social Service is temporarily unavailable. Please try again later.',
-        }),
-      );
+      >('getUserFeed', { userId }, () => ({
+        success: false,
+        error:
+          'Social Service is temporarily unavailable. Please try again later.',
+      }));
     } catch (error) {
       return this.handleError(error);
     }
