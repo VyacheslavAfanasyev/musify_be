@@ -402,8 +402,8 @@ export class UserController {
   }
 
   @MessagePattern({ cmd: "getAllProfiles" })
-  async getAllProfiles() {
-    return await this.usersService.findAll();
+  async getAllProfiles(@Payload() payload?: { excludeUserId?: string }) {
+    return await this.usersService.findAll(payload?.excludeUserId);
   }
 
   @MessagePattern({ cmd: "getUserByEmail" })
@@ -420,8 +420,8 @@ export class UserController {
   }
 
   @MessagePattern({ cmd: "getAllUsers" })
-  async getAllUsers() {
-    return await this.usersService.findAll();
+  async getAllUsers(@Payload() payload: { excludeUserId?: string }) {
+    return await this.usersService.findAll(payload.excludeUserId);
   }
 
   @MessagePattern({ cmd: "updatePassword" })

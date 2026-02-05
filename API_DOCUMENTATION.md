@@ -255,7 +255,79 @@ Backend использует микросервисную архитектуру
 
 ---
 
-### 2.3 Получить публичный профиль
+### 2.3 Получить список всех пользователей
+
+**GET** `/users?excludeUserId=uuid`
+
+Получает список всех пользователей в системе.
+
+**Query Parameters:**
+- `excludeUserId` (string, optional) - ID пользователя, которого нужно исключить из списка (обычно ID текущего пользователя)
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "profiles": [
+    {
+      "_id": "mongodb_id",
+      "userId": "uuid",
+      "username": "johndoe",
+      "displayName": "John Doe",
+      "bio": "Musician from Moscow",
+      "avatarUrl": "http://localhost:3000/media/avatar/userId",
+      "coverImageUrl": "http://localhost:3000/media/file/fileId",
+      "location": "Moscow, Russia",
+      "genres": ["rock", "jazz"],
+      "instruments": ["guitar", "piano"],
+      "socialLinks": {
+        "youtube": "https://youtube.com/@johndoe",
+        "vk": "https://vk.com/johndoe",
+        "telegram": "@johndoe"
+      },
+      "stats": {
+        "tracksCount": 15,
+        "followersCount": 120,
+        "followingCount": 45,
+        "totalPlays": 1250
+      },
+      "preferences": {
+        "emailNotifications": true,
+        "showOnlineStatus": true,
+        "privateProfile": false
+      },
+      "role": "musician",
+      "following": ["uuid1", "uuid2"],
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-15T00:00:00.000Z"
+    },
+    {
+      "_id": "mongodb_id_2",
+      "userId": "uuid_2",
+      "username": "janedoe",
+      "displayName": "Jane Doe",
+      ...
+    }
+  ]
+}
+```
+
+**Response (500):**
+```json
+{
+  "success": false,
+  "error": "User Service is temporarily unavailable. Please try again later."
+}
+```
+
+**Примечание:** 
+- Если указан параметр `excludeUserId`, пользователь с этим ID будет исключен из списка результатов.
+- Рекомендуется использовать для отображения списка пользователей, поиска и навигации по профилям.
+- Обычно используется с параметром `excludeUserId`, чтобы исключить текущего пользователя из списка других пользователей.
+
+---
+
+### 2.4 Получить публичный профиль
 
 **GET** `/users/:username/public?viewerId=uuid`
 
@@ -284,7 +356,7 @@ Backend использует микросервисную архитектуру
 
 ---
 
-### 2.4 Получить треки пользователя
+### 2.5 Получить треки пользователя
 
 **GET** `/users/:username/tracks`
 
@@ -320,7 +392,7 @@ Backend использует микросервисную архитектуру
 
 ---
 
-### 2.5 Получить все аудиофайлы пользователя
+### 2.6 Получить все аудиофайлы пользователя
 
 **GET** `/users/:username/audio-files`
 
@@ -376,7 +448,7 @@ Backend использует микросервисную архитектуру
 
 ---
 
-### 2.6 Обновить профиль
+### 2.7 Обновить профиль
 
 **PUT** `/users/:id/profile`
 
@@ -1009,6 +1081,33 @@ if (result.success) {
     console.log(`- ${file.originalName} (${file.mimeType})`);
   });
 }
+```
+
+### Пример: Получение списка всех пользователей
+
+```javascript
+// Получить список всех пользователей, исключая текущего
+const currentUserId = localStorage.getItem('userId');
+const response = await fetch(`http://localhost:3000/users?excludeUserId=${currentUserId}`, {
+  headers: {
+    'Authorization': `Bearer ${accessToken}`
+  }
+});
+
+const result = await response.json();
+if (result.success) {
+  console.log('Total users:', result.profiles.length);
+  result.profiles.forEach(user => {
+    console.log(`- ${user.username} (${user.displayName || user.username})`);
+  });
+}
+
+// Получить список всех пользователей (включая текущего)
+const responseAll = await fetch('http://localhost:3000/users', {
+  headers: {
+    'Authorization': `Bearer ${accessToken}`
+  }
+});
 ```
 
 ### Пример: Подписка на пользователя

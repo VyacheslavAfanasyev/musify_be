@@ -604,13 +604,18 @@ export class UsersService {
 
   /**
    * Получение всех профилей
+   * @param excludeUserId - ID пользователя, которого нужно исключить из списка
    */
-  async findAll(): Promise<
+  async findAll(
+    excludeUserId?: string,
+  ): Promise<
     | { success: true; profiles: UserProfileDocument[] }
     | { success: false; error: string }
   > {
     try {
-      const profiles = await this.userProfileModel.find();
+      const query = excludeUserId ? { userId: { $ne: excludeUserId } } : {};
+
+      const profiles = await this.userProfileModel.find(query);
       return {
         success: true,
         profiles,

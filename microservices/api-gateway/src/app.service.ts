@@ -1,12 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
-import {
-  firstValueFrom,
-  Observable,
-  timeout,
-  catchError,
-  throwError,
-} from 'rxjs';
 import type {
   IChangePasswordDto,
   ICreateUserDto,
@@ -718,6 +711,25 @@ export class AppService {
         success: false,
         error:
           'Social Service is temporarily unavailable. Please try again later.',
+      }));
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Получить список всех пользователей
+   * @param excludeUserId - ID пользователя, которого нужно исключить из списка
+   */
+  async getAllUsers(excludeUserId?: string) {
+    try {
+      return await this.sendToUserService<
+        { success: true; profiles: any[] } | { success: false; error: string },
+        { excludeUserId?: string }
+      >('getAllUsers', { excludeUserId }, () => ({
+        success: false,
+        error:
+          'User Service is temporarily unavailable. Please try again later.',
       }));
     } catch (error) {
       return this.handleError(error);

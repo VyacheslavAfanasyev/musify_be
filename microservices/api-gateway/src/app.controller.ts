@@ -402,6 +402,11 @@ export class AppController {
     return await this.appService.getUserFeed(userId);
   }
 
+  @Get('users')
+  async getAllUsers(@Query('excludeUserId') excludeUserId?: string) {
+    return await this.appService.getAllUsers(excludeUserId);
+  }
+
   /**
    * Endpoint для мониторинга состояния Circuit Breakers
    */
