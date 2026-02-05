@@ -151,13 +151,65 @@ export class AppService {
   }
 
   /**
+   * Декодирует имя файла из правильной кодировки
+   * Исправляет проблему с кириллицей в именах файлов
+   * Универсальное решение для любых кириллических имен файлов
+   *
+   * Проблема: когда UTF-8 текст интерпретируется как Latin-1, возникает mojibake
+   * Решение: декодируем из Latin-1 в UTF-8 и проверяем наличие кириллицы
+   */
+  private decodeFileName(originalName: string): string {
+    try {
+      // Проверяем, есть ли уже кириллица в оригинальном имени
+      // Если есть - имя уже правильно закодировано, возвращаем как есть
+      const hasCyrillic = /[А-Яа-яЁё]/.test(originalName);
+      if (hasCyrillic) {
+        return originalName;
+      }
+
+      // Проверяем, содержит ли имя файла URL-encoded символы
+      // Например, %D0%9F вместо П
+      if (originalName.includes('%')) {
+        try {
+          const urlDecoded = decodeURIComponent(originalName);
+          if (urlDecoded !== originalName && /[А-Яа-яЁё]/.test(urlDecoded)) {
+            return urlDecoded;
+          }
+        } catch (_e) {
+          // Если декодирование не удалось, продолжаем
+        }
+      }
+
+      // Пытаемся декодировать из Latin-1 в UTF-8
+      // Это исправляет случай, когда UTF-8 был неправильно интерпретирован как Latin-1
+      // Когда UTF-8 байты интерпретируются как Latin-1, каждый байт становится символом
+      // Преобразуем строку обратно в байты Latin-1, а затем интерпретируем как UTF-8
+      const buffer = Buffer.from(originalName, 'latin1');
+      const decoded = buffer.toString('utf8');
+
+      // Проверяем, появились ли кириллические символы после декодирования
+      // Если да - значит это был mojibake, используем декодированное имя
+      if (decoded && decoded !== originalName && /[А-Яа-яЁё]/.test(decoded)) {
+        return decoded;
+      }
+
+      // Если декодирование не дало результата или имя уже правильно закодировано
+      // возвращаем оригинальное имя
+      return originalName;
+    } catch (_error) {
+      // В случае ошибки возвращаем оригинальное имя
+      return originalName;
+    }
+  }
+
+  /**
    * Подготавливает файл для передачи через RabbitMQ
    * Конвертирует Express.Multer.File в формат, который можно сериализовать
    */
   private prepareFileForUpload(file: any) {
     return {
       fieldname: file.fieldname,
-      originalname: file.originalname,
+      originalname: this.decodeFileName(file.originalname),
       encoding: file.encoding,
       mimetype: file.mimetype,
       size: file.size,
