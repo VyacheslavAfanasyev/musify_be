@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { TerminusModule } from "@nestjs/terminus";
 import { SocialModule } from "./social.module";
 import { SocialController } from "./social.controller";
 import { HealthController } from "./health.controller";
@@ -7,7 +8,7 @@ import { RabbitMQHealthIndicator } from "./rabbitmq-health.indicator";
 import { PrometheusService } from "@app/shared";
 
 @Module({
-  imports: [SocialModule],
+  imports: [SocialModule, TerminusModule],
   controllers: [SocialController, HealthController, MetricsController],
   providers: [
     RabbitMQHealthIndicator,
